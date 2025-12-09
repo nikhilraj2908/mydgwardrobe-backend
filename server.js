@@ -3,6 +3,7 @@ const dotenv = require("dotenv");
 const cors = require("cors");
 const { connectDB } = require("./src/config/db");
 const authRoutes = require("./src/routes/auth.routes");
+const userRoutes = require("./src/routes/user.routes");
 
 dotenv.config();
 const app = express();
@@ -16,6 +17,7 @@ app.use(express.urlencoded({ extended: true })); // REQUIRED
 connectDB();
 // Routes
 app.use("/api/auth", authRoutes);
+app.use("/api/user", userRoutes);
 
 // Start server
 app.listen(process.env.PORT || 5000, () => {
