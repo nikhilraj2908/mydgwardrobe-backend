@@ -456,7 +456,8 @@ const requestPasswordReset = async (req, res) => {
     });
 
     // Password reset link
-    const resetLink = `http://localhost:8081/reset-password?token=${token}`;
+    // const resetLink = `http://localhost:8081/reset-password?token=${token}`;
+    const resetLink = `mydgwardrobe://reset-password?token=${token}`;
 
     // Send Email
     await sendResetMail(email, resetLink);
