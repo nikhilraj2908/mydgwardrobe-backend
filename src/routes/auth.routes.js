@@ -11,7 +11,7 @@
 // export default router;
 
 const express = require("express");
-const { register, verifyOTP, login, resendOTP, loginWithMobile, verifyMobileLogin, resendMobileOTP  } = require("../controllers/auth.controller");
+const { register, verifyOTP, login, resendOTP, loginWithMobile, verifyMobileLogin, resendMobileOTP, requestPasswordReset, verifyResetToken, resetPassword  } = require("../controllers/auth.controller");
 
 const router = express.Router();
 
@@ -22,6 +22,9 @@ router.post("/resend-otp", resendOTP);
 router.post("/login-mobile", loginWithMobile);
 router.post("/verify-mobile-login", verifyMobileLogin);
 router.post("/resend-mobile-otp", resendMobileOTP);
+router.post("/forgot-password", requestPasswordReset);
+router.post("/verify-reset-token", verifyResetToken);
+router.post("/reset-password", resetPassword);
 
 
 module.exports = router;

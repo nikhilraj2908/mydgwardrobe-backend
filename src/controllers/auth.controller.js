@@ -3,8 +3,9 @@ const OTP = require("../models/otp.model");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const { generateOTP } = require("../services/otp.service");
-const { sendOTP } = require("../services/mail.service");
-
+const { sendOTP, sendResetMail } = require("../services/mail.service");
+const PasswordReset = require("../models/passwordResetToken.model");
+const crypto = require("crypto");
 // --------------------------------------------------------
 //  Helper: Delete old OTP + throttle OTP requests
 // --------------------------------------------------------
@@ -208,42 +209,42 @@ try{
 // --------------------------------------------------------
 //  NORMAL LOGIN (Email + Password)
 // --------------------------------------------------------
-const loginn = async (req, res) => {
-  try {
-    const { email, password } = req.body;
+// const loginn = async (req, res) => {
+//   try {
+//     const { email, password } = req.body;
 
-    const user = await User.findOne({ email }).select("+password");
-    if (!user)
-      return res.status(404).json({ message: "User not found" });
+//     const user = await User.findOne({ email }).select("+password");
+//     if (!user)
+//       return res.status(404).json({ message: "User not found" });
 
-    if (!user.isVerified)
-      return res.status(403).json({ message: "Please verify your email first" });
+//     if (!user.isVerified)
+//       return res.status(403).json({ message: "Please verify your email first" });
 
-    const valid = await bcrypt.compare(password, user.password);
-    if (!valid) return res.status(400).json({ message: "Invalid password" });
+//     const valid = await bcrypt.compare(password, user.password);
+//     if (!valid) return res.status(400).json({ message: "Invalid password" });
 
-    const token = jwt.sign(
-      { id: user._id, role: user.role },
-      process.env.JWT_SECRET,
-      { expiresIn: "7d" }
-    );
+//     const token = jwt.sign(
+//       { id: user._id, role: user.role },
+//       process.env.JWT_SECRET,
+//       { expiresIn: "7d" }
+//     );
 
-    return res.json({
-      message: "Login successful",
-      token,
-      user: {
-        id: user._id,
-        username: user.username,
-        email: user.email,
-        role: user.role,
-      },
-    });
+//     return res.json({
+//       message: "Login successful",
+//       token,
+//       user: {
+//         id: user._id,
+//         username: user.username,
+//         email: user.email,
+//         role: user.role,
+//       },
+//     });
 
-  } catch (err) {
-    console.error("LOGIN ERROR:", err);
-    res.status(500).json({ message: "Server error" });
-  }
-};
+//   } catch (err) {
+//     console.error("LOGIN ERROR:", err);
+//     res.status(500).json({ message: "Server error" });
+//   }
+// };
 
 // --------------------------------------------------------
 //  MOBILE LOGIN — SEND OTP TO EMAIL
@@ -421,14 +422,122 @@ const resendMobileOTP = async (req, res) => {
 
 
 
+const requestPasswordReset = async (req, res) => {
+  try {
+    const { identifier } = req.body; // email OR mobile number
+
+    if (!identifier) {
+      return res.status(400).json({ message: "Email or mobile number is required" });
+    }
+
+    // Find user by email or mobile
+    const user = await User.findOne({
+      $or: [{ email: identifier }, { mobile: identifier }],
+    });
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    const email = user.email; // Always send link to registered email
+
+    // Create unique reset token
+    const token = crypto.randomBytes(32).toString("hex");
+    const expiry = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
+
+    // Remove existing tokens
+    await PasswordReset.deleteMany({ email });
+
+    // Save token
+    await PasswordReset.create({
+      email,
+      token,
+      expiresAt: expiry,
+    });
+
+    // Password reset link
+    const resetLink = `http://localhost:8081/reset-password?token=${token}`;
+
+    // Send Email
+    await sendResetMail(email, resetLink);
+
+    return res.json({ message: "Password reset link sent to your email" });
+  } catch (err) {
+    console.error("FORGOT PASSWORD ERROR:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+
+const verifyResetToken = async (req, res) => {
+  try {
+    const { token } = req.body;
+
+    const record = await PasswordReset.findOne({ token });
+
+    if (!record) {
+      return res.status(400).json({ message: "Invalid or expired reset token" });
+    }
+
+    if (record.expiresAt < new Date()) {
+      await PasswordReset.deleteMany({ token });
+      return res.status(400).json({ message: "Reset link expired" });
+    }
+
+    return res.json({ message: "Valid token", email: record.email });
+  } catch (err) {
+    console.error("TOKEN VERIFY ERROR:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+
+
+const resetPassword = async (req, res) => {
+  try {
+    const { token, newPassword } = req.body;
+
+    if (!token || !newPassword) {
+      return res.status(400).json({ message: "Token & password required" });
+    }
+
+    const record = await PasswordReset.findOne({ token });
+    if (!record) {
+      return res.status(400).json({ message: "Invalid or expired token" });
+    }
+
+    if (record.expiresAt < new Date()) {
+      await PasswordReset.deleteOne({ token });
+      return res.status(400).json({ message: "Reset link expired" });
+    }
+
+    const hashed = await bcrypt.hash(newPassword, 10);
+
+    await User.findOneAndUpdate({ email: record.email }, { password: hashed });
+
+    await PasswordReset.deleteMany({ email: record.email });
+
+    return res.json({ message: "Password updated successfully" });
+  } catch (err) {
+    console.error("RESET PASSWORD ERROR:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+
 // --------------------------------------------------------
 
 module.exports = {
+    
   register,
   verifyOTP,
   login,
   resendOTP,
   loginWithMobile,
   verifyMobileLogin,
-  resendMobileOTP
+  resendMobileOTP,
+  requestPasswordReset,
+  resetPassword,
+  verifyResetToken
+
 };
