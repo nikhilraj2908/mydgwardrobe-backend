@@ -9,16 +9,12 @@ const transporter = nodemailer.createTransport({
     pass: process.env.SMTP_PASSWORD,
   },
 });
+
+// -------------------------
+// SEND OTP (4-digit)
+// -------------------------
 const sendOTP = async (email, otp) => {
   try {
-    const transporter = nodemailer.createTransport({
-      service: "gmail",
-      auth: {
-        user: process.env.SMTP_EMAIL,
-        pass: process.env.SMTP_PASSWORD,
-      },
-    });
-
     await transporter.sendMail({
       from: `"Your DG Closet" <${process.env.SMTP_EMAIL}>`,
       to: email,
@@ -33,10 +29,11 @@ const sendOTP = async (email, otp) => {
     });
 
     console.log("📧 OTP sent to", email);
-  } catch (err) {
-    console.error("❌ Error sending OTP:", err);
+  } catch (error) {
+    console.error("❌ Error sending OTP:", error);
   }
 };
+
 
 
 const sendResetMail = async (email, link) => {
