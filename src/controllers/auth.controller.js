@@ -462,6 +462,118 @@ const resetPassword = async (req, res) => {
   }
 };
 
+
+
+/* =========================================================
+   GOOGLE SIGNUP / LOGIN
+========================================================= */
+const googleAuth = async (req, res) => {
+  try {
+    const { email, name, googleId, photo } = req.body;
+
+    if (!email || !googleId) {
+      return res.status(400).json({ message: "Google data incomplete" });
+    }
+
+    let user = await User.findOne({ email });
+
+    // -----------------------------
+    // EXISTING USER → LOGIN
+    // -----------------------------
+    if (user) {
+      // Prevent normal users from logging in via Google accidentally
+      if (user.authProvider && user.authProvider !== "google") {
+        return res.status(400).json({
+          message: "This email is registered using password login",
+        });
+      }
+    }
+
+    // -----------------------------
+    // NEW USER → SIGN UP
+    // -----------------------------
+    if (!user) {
+      user = await User.create({
+        username: name,
+        email,
+        googleId,
+        photo,
+        authProvider: "google",
+        isVerified: true, // Google already verified email
+        profileCompleted: false,
+      });
+    }
+
+    // -----------------------------
+    // JWT TOKEN
+    // -----------------------------
+    const token = jwt.sign(
+      { id: user._id, role: user.role },
+      process.env.JWT_SECRET,
+      { expiresIn: "7d" }
+    );
+
+    return res.json({
+      message: "Google login successful",
+      token,
+      user: {
+        id: user._id,
+        username: user.username,
+        email: user.email,
+        role: user.role,
+        photo: user.photo,
+        profileCompleted: user.profileCompleted,
+      },
+    });
+  } catch (err) {
+    console.error("GOOGLE AUTH ERROR:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+
+const completeProfile = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { mobile, gender, dob, username } = req.body;
+
+    if (!mobile || !gender || !dob) {
+      return res
+        .status(400)
+        .json({ message: "All fields are required" });
+    }
+
+    if (username) {
+      const exists = await User.findOne({
+        username,
+        _id: { $ne: userId },
+      });
+      if (exists) {
+        return res.status(400).json({ message: "Username already taken" });
+      }
+    }
+
+    const user = await User.findByIdAndUpdate(
+      userId,
+      {
+        mobile,
+        gender,
+        dob,
+        username,
+        profileCompleted: true,
+      },
+      { new: true }
+    );
+
+    res.json({
+      message: "Profile completed successfully",
+      user,
+    });
+  } catch (err) {
+    console.error("COMPLETE PROFILE ERROR:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
 /* ========================================================= */
 
 module.exports = {
@@ -475,4 +587,6 @@ module.exports = {
   requestPasswordReset,
   verifyResetToken,
   resetPassword,
+  googleAuth,
+  completeProfile,
 };
