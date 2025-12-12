@@ -8,6 +8,6 @@ const router = express.Router();
 
 router.get("/me", authMiddleware, getProfile);
 router.put("/update", authMiddleware, updateProfile);
-router.put("/complete-profile", authMiddleware, completeProfile);
+// router.put("/complete-profile", authMiddleware, completeProfile);
 
 module.exports = router;
