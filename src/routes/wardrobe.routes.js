@@ -12,10 +12,11 @@ const {
 /* Add Item */
 router.post(
   "/add",
-  auth,
+  protect,
   upload.single("image"),
   addWardrobeItem
 );
+
 
 /* Get My Items */
 router.get("/my", auth, getMyWardrobeItems);
