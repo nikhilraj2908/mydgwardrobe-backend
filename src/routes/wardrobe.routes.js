@@ -7,12 +7,14 @@ const auth = require("../middlewares/auth.middleware");
 const {
   addWardrobeItem,
   getMyWardrobeItems,
+   createWardrobe,
+  getMyWardrobes,
 } = require("../controllers/wardrobe.controller");
 
 /* Add Item */
 router.post(
   "/add",
-  protect,
+  auth,
   upload.single("image"),
   addWardrobeItem
 );
@@ -21,4 +23,17 @@ router.post(
 /* Get My Items */
 router.get("/my", auth, getMyWardrobeItems);
 
+/* Create new wardrobe (Mummy's, Work Wear, etc.) */
+router.post(
+  "/create",
+  auth,
+  createWardrobe
+);
+
+/* Get my wardrobes */
+router.get(
+  "/list",
+  auth,
+  getMyWardrobes
+);
 module.exports = router;

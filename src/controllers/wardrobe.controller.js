@@ -1,5 +1,5 @@
 const WardrobeItem = require("../models/wardrobeItem.model");
-
+const Wardrobe = require("../models/wardrobe.model");
 /* ======================================================
    ADD ITEM TO WARDROBE
 ====================================================== */
@@ -64,7 +64,64 @@ const getMyWardrobeItems = async (req, res) => {
   }
 };
 
+/* =========================================================
+   CREATE NEW WARDROBE
+========================================================= */
+const createWardrobe = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { name, color } = req.body;
+
+    if (!name || !color) {
+      return res.status(400).json({
+        message: "Wardrobe name and color are required",
+      });
+    }
+
+    const wardrobe = await Wardrobe.create({
+      user: userId,
+      name: name.trim(),
+      color,
+    });
+
+    res.status(201).json({
+      message: "Wardrobe created successfully",
+      wardrobe,
+    });
+  } catch (err) {
+    if (err.code === 11000) {
+      return res.status(400).json({
+        message: "Wardrobe with this name already exists",
+      });
+    }
+
+    console.error("CREATE WARDROBE ERROR:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+/* =========================================================
+   GET USER WARDROBES
+========================================================= */
+const getMyWardrobes = async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    const wardrobes = await Wardrobe.find({ user: userId })
+      .sort({ createdAt: -1 });
+
+    res.json({ wardrobes });
+  } catch (err) {
+    console.error("GET WARDROBES ERROR:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+
+
 module.exports = {
   addWardrobeItem,
   getMyWardrobeItems,
+   createWardrobe,
+  getMyWardrobes,
 };
