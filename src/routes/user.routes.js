@@ -1,13 +1,27 @@
 const express = require("express");
-// const { authMiddleware } = require("../middleware/auth.middleware");
-const authMiddleware = require("../middlewares/auth.middleware");
-
-const { getProfile, updateProfile } = require("../controllers/user.controller");
-
 const router = express.Router();
 
+const authMiddleware = require("../middlewares/auth.middleware");
+const upload = require("../middlewares/upload.middleware");
+
+const {
+  getProfile,
+  updateProfile,
+} = require("../controllers/user.controller");
+
+/* ======================================================
+   USER PROFILE
+====================================================== */
+
+/* Get my profile (prefill Edit Profile screen) */
 router.get("/me", authMiddleware, getProfile);
-router.put("/update", authMiddleware, updateProfile);
-// router.put("/complete-profile", authMiddleware, completeProfile);
+
+/* Update my profile (text + optional profile image) */
+router.put(
+  "/me",
+  authMiddleware,
+  upload.single("photo"), // 👈 profile image field name
+  updateProfile
+);
 
 module.exports = router;
