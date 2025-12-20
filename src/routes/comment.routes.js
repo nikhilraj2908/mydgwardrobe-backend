@@ -1,13 +1,20 @@
-const express=require("express");
-const router=express.Router();
+const express = require("express");
+const router = express.Router();
+const authMiddleware = require("../middlewares/auth.middleware");
 
-const auth=require("../middlewares/auth.middleware")
-const{
-    addComment,
-    getComment,
-}=require("../controllers/comment.controller");
+const {
+  addComment,
+  getComments,
+  deleteComment,
+} = require("../controllers/comment.controller");
 
-router.post("/add",auth,addComment);
-router.get("/:postType/:postId",getComments);
+// Add a comment to a post
+router.post("/:postId", authMiddleware, addComment);
 
-module.exports=router;
+// Get comments for a post (public)
+router.get("/:postId", getComments);
+
+// Delete a comment (only owner can delete)
+router.delete("/:commentId", authMiddleware, deleteComment);
+
+module.exports = router;
