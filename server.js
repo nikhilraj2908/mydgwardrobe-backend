@@ -13,7 +13,18 @@ const commentRoutes=require("./src/routes/comment.routes");
 const app = express();
 
 // Middlewares
-app.use(cors());
+// app.use(cors());
+
+
+const corsOptions = {
+  origin: "*", // for dev (we will lock later)
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+};
+
+app.use(cors(corsOptions));
+app.options("*", cors(corsOptions)); // 🔥 THIS FIXES PREFLIGHT
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true })); // REQUIRED
 
