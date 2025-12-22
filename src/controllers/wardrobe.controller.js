@@ -167,19 +167,58 @@ const createWardrobe = async (req, res) => {
 /* =========================================================
    GET USER WARDROBES
 ========================================================= */
+// const getMyWardrobes = async (req, res) => {
+//   try {
+//     const userId = req.user.id;
+
+//     const wardrobes = await Wardrobe.find({ user: userId })
+//       .sort({ createdAt: -1 });
+
+//     res.json({ wardrobes });
+//   } catch (err) {
+//     console.error("GET WARDROBES ERROR:", err);
+//     res.status(500).json({ message: "Server error" });
+//   }
+// };
 const getMyWardrobes = async (req, res) => {
   try {
     const userId = req.user.id;
 
+    // 1️⃣ Fetch wardrobes
     const wardrobes = await Wardrobe.find({ user: userId })
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 })
+      .lean();
 
-    res.json({ wardrobes });
+    // 2️⃣ Fetch all items once
+    const items = await WardrobeItem.find({ user: userId }).lean();
+
+    // 3️⃣ Attach itemCount & totalWorth
+    const enrichedWardrobes = wardrobes.map((wardrobe) => {
+      const wardrobeItems = items.filter(
+        (item) =>
+          item.wardrobe &&
+          item.wardrobe.toLowerCase() === wardrobe.name.toLowerCase()
+      );
+
+      const totalWorth = wardrobeItems.reduce(
+        (sum, item) => sum + (Number(item.price) || 0),
+        0
+      );
+
+      return {
+        ...wardrobe,
+        itemCount: wardrobeItems.length,
+        totalWorth, // 🔥 THIS IS WHAT YOU NEED
+      };
+    });
+
+    res.json({ wardrobes: enrichedWardrobes });
   } catch (err) {
     console.error("GET WARDROBES ERROR:", err);
     res.status(500).json({ message: "Server error" });
   }
 };
+
 
 
 
