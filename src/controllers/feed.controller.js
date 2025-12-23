@@ -125,24 +125,25 @@ exports.getCollectionFeed = async (req, res) => {
   try {
     const collections = await Wardrobe.aggregate([
       {
-        $lookup: {
-          from: "wardrobeitems",
-          let: { wardrobeId: "$_id" },
-          pipeline: [
-            {
-              $match: {
-                $expr: {
-                  $and: [
-                    { $eq: ["$wardrobe", "$$wardrobeId"] },
-                    { $eq: ["$visibility", "public"] }
-                  ]
-                }
-              }
-            }
-          ],
-          as: "publicItems"
+  $lookup: {
+    from: "wardrobeitems",
+    let: { wardrobeName: "$name" },
+    pipeline: [
+      {
+        $match: {
+          $expr: {
+            $and: [
+              { $eq: ["$wardrobe", "$$wardrobeName"] },
+              { $eq: ["$visibility", "public"] }
+            ]
+          }
         }
-      },
+      }
+    ],
+    as: "publicItems"
+  }
+}
+,
 
       {
         $group: {
@@ -164,20 +165,24 @@ exports.getCollectionFeed = async (req, res) => {
       { $unwind: "$user" },
 
       {
-        $project: {
-          type: { $literal: "collection" },
-          user: {
-            _id: "$user._id",
-            username: "$user.username",
-            photo: "$user.photo"
-          },
-          stats: {
-            totalWorth: 1,
-            totalWardrobes: 1,
-            totalItems: 1
-          }
-        }
-      },
+  $project: {
+    _id: "$_id",
+    type: { $literal: "collection" },
+
+    user: {
+      _id: "$user._id",
+      username: "$user.username",
+      photo: "$user.photo"
+    },
+
+    stats: {
+      totalWorth: "$totalWorth",
+      totalWardrobes: "$totalWardrobes",
+      totalItems: "$totalItems"
+    }
+  }
+}
+,
 
       { $sample: { size: 5 } } // random users
     ]);
