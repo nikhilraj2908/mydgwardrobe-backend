@@ -45,51 +45,69 @@ exports.getPublicFeed = async (req, res) => {
     /* ===============================
        WARDROBE POSTS (public wardrobes)
     =============================== */
-    const wardrobePosts = await Wardrobe.aggregate([
-      {
-        $lookup: {
-          from: "wardrobeitems",
-          localField: "_id",
-          foreignField: "wardrobe",
-          as: "items",
-        },
-      },
-
-      {
-        $addFields: {
-          totalItems: { $size: "$items" },
-          totalWorth: { $sum: "$items.price" },
-        },
-      },
-
-      {
-        $lookup: {
-          from: "users",
-          localField: "user",
-          foreignField: "_id",
-          as: "user",
-        },
-      },
-      { $unwind: "$user" },
-
-      {
-        $project: {
-          type: { $literal: "wardrobe" },
-          name: 1,
-          color: 1,
-          totalItems: 1,
-          totalWorth: 1,
-          createdAt: 1,
-          likes: { $ifNull: ["$likes", 0] },
-          comments: { $ifNull: ["$comments", 0] },
-          user: {
-            _id: "$user._id",
-            username: "$user.username",
-            photo: "$user.photo",
+  const wardrobePosts = await Wardrobe.aggregate([
+  {
+    $lookup: {
+      from: "wardrobeitems",
+      let: { wardrobeId: "$_id" },
+      pipeline: [
+        {
+          $match: {
+            $expr: {
+              $and: [
+                { $eq: ["$wardrobe", "$$wardrobeId"] },
+                { $eq: ["$visibility", "public"] },
+              ],
+            },
           },
         },
+      ],
+      as: "items",
+    },
+  },
+
+  {
+    $addFields: {
+      totalItems: { $size: "$items" },
+      totalWorth: { $sum: "$items.price" },
+    },
+  },
+
+  {
+    $match: {
+      totalItems: { $gt: 0 },
+    },
+  },
+
+  {
+    $lookup: {
+      from: "users",
+      localField: "user",
+      foreignField: "_id",
+      as: "user",
+    },
+  },
+  { $unwind: "$user" },
+
+  {
+    $project: {
+      _id: 1,
+      type: { $literal: "wardrobe" },
+      name: 1,
+      color: 1,
+      totalItems: 1,
+      totalWorth: 1,
+      createdAt: 1,
+      likes: { $ifNull: ["$likes", 0] },
+      comments: { $ifNull: ["$comments", 0] },
+      user: {
+        _id: "$user._id",
+        username: "$user.username",
+        photo: "$user.photo",
       },
-    ]);
+    },
+  },
+]);
 
     /* ===============================
        MERGE + SORT + PAGINATE

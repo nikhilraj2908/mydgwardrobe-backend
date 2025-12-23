@@ -9,6 +9,7 @@ const {
   getMyWardrobeItems,
    createWardrobe,
   getMyWardrobes,
+  getPublicWardrobeItems,
 } = require("../controllers/wardrobe.controller");
 
 /* Add Item */
@@ -36,4 +37,10 @@ router.get(
   auth,
   getMyWardrobes
 );
+router.get("/public-items", getPublicWardrobeItems);
+router.get(
+  "/public/:wardrobeId/items",
+  getPublicWardrobeItems
+);
+
 module.exports = router;

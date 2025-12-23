@@ -89,7 +89,7 @@ const addWardrobeItem = async (req, res) => {
       user: userId,
       imageUrl: `/uploads/wardrobe/${req.file.filename}`,
       category,
-      wardrobe: wardrobeDoc.name, // keep string for backward compatibility
+      wardrobe:wardrobeDoc._id, // keep string for backward compatibility
       price,
       brand,
       visibility,
@@ -184,37 +184,73 @@ const getMyWardrobes = async (req, res) => {
   try {
     const userId = req.user.id;
 
-    // 1️⃣ Fetch wardrobes
-    const wardrobes = await Wardrobe.find({ user: userId })
-      .sort({ createdAt: -1 })
-      .lean();
+    const wardrobes = await Wardrobe.aggregate([
+      {
+        $match: {
+          user: new mongoose.Types.ObjectId(userId),
+        },
+      },
 
-    // 2️⃣ Fetch all items once
-    const items = await WardrobeItem.find({ user: userId }).lean();
+      {
+        $lookup: {
+          from: "wardrobeitems",
+          let: { wardrobeId: "$_id" },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $eq: ["$wardrobe", "$$wardrobeId"],
+                },
+              },
+            },
+          ],
+          as: "items",
+        },
+      },
 
-    // 3️⃣ Attach itemCount & totalWorth
-    const enrichedWardrobes = wardrobes.map((wardrobe) => {
-      const wardrobeItems = items.filter(
-        (item) =>
-          item.wardrobe &&
-          item.wardrobe.toLowerCase() === wardrobe.name.toLowerCase()
-      );
+      {
+        $addFields: {
+          itemCount: { $size: "$items" },
+          totalWorth: { $sum: "$items.price" },
+        },
+      },
 
-      const totalWorth = wardrobeItems.reduce(
-        (sum, item) => sum + (Number(item.price) || 0),
-        0
-      );
+      {
+        $project: {
+          items: 0, // hide raw items array
+        },
+      },
 
-      return {
-        ...wardrobe,
-        itemCount: wardrobeItems.length,
-        totalWorth, // 🔥 THIS IS WHAT YOU NEED
-      };
-    });
+      {
+        $sort: { createdAt: -1 },
+      },
+    ]);
 
-    res.json({ wardrobes: enrichedWardrobes });
+    res.json({ wardrobes });
   } catch (err) {
     console.error("GET WARDROBES ERROR:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+const getPublicWardrobeItems = async (req, res) => {
+  try {
+    const { wardrobeId } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(wardrobeId)) {
+      return res.status(400).json({ message: "Invalid wardrobe id" });
+    }
+
+    const items = await WardrobeItem.find({
+      wardrobe: wardrobeId,
+      visibility: "public",
+    })
+      .populate("user", "username photo")
+      .sort({ createdAt: -1 });
+
+    res.json(items);
+  } catch (err) {
+    console.error("GET PUBLIC WARDROBE ITEMS ERROR:", err);
     res.status(500).json({ message: "Server error" });
   }
 };
@@ -227,4 +263,5 @@ module.exports = {
   getMyWardrobeItems,
    createWardrobe,
   getMyWardrobes,
+  getPublicWardrobeItems
 };
