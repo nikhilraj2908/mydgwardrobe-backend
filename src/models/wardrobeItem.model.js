@@ -19,11 +19,9 @@ const wardrobeItemSchema = new mongoose.Schema(
     },
 
     wardrobe: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Wardrobe",
+      type: String,
       required: true,
     },
-
 
     price: {
       type: Number,
