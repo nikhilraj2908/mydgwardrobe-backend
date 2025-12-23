@@ -220,11 +220,28 @@ const getMyWardrobes = async (req, res) => {
 };
 
 
+const getWardrobePublicItems = async (req, res) => {
+  const { wardrobeId } = req.params;
 
+  const wardrobe = await Wardrobe.findById(wardrobeId).select("name");
+
+if (!wardrobe) {
+  return res.status(404).json({ message: "Wardrobe not found" });
+}
+
+const items = await WardrobeItem.find({
+  wardrobe: wardrobe.name, // ✅ STRING MATCH
+  visibility: "public"
+});
+
+
+  res.json({ wardrobe, items });
+};
 
 module.exports = {
   addWardrobeItem,
   getMyWardrobeItems,
    createWardrobe,
   getMyWardrobes,
+  getWardrobePublicItems
 };

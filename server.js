@@ -9,7 +9,7 @@ const wardrobeRoutes = require("./src/routes/wardrobe.routes");
 const feedRoutes = require("./src/routes/feed.routes");
 const likeRoutes = require("./src/routes/like.routes");
 const commentRoutes = require("./src/routes/comment.routes");
-
+const collectionRoutes = require("./src/routes/collection.routes");
 const app = express();
 
 /* ================= CORS ================= */
@@ -44,7 +44,7 @@ app.use("/api/feed", feedRoutes);
 app.use("/api/like", likeRoutes);
 app.use("/api/comment", commentRoutes);
 app.use("/uploads", express.static("uploads"));
-
+app.use("/api/collections", collectionRoutes);
 /* ================= START ================= */
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {

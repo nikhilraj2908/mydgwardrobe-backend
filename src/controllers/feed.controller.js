@@ -55,12 +55,24 @@ exports.getPublicFeed = async (req, res) => {
         },
       },
 
-      {
-        $addFields: {
-          totalItems: { $size: "$items" },
-          totalWorth: { $sum: "$items.price" },
-        },
-      },
+     {
+  $addFields: {
+    publicItems: {
+      $filter: {
+        input: "$items",
+        as: "item",
+        cond: { $eq: ["$$item.visibility", "public"] }
+      }
+    }
+  }
+},
+{
+  $addFields: {
+    totalItems: { $size: "$publicItems" },
+    totalWorth: { $sum: "$publicItems.price" }
+  }
+}
+,
 
       {
         $lookup: {
@@ -108,3 +120,71 @@ exports.getPublicFeed = async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 };
+
+exports.getCollectionFeed = async (req, res) => {
+  try {
+    const collections = await Wardrobe.aggregate([
+      {
+        $lookup: {
+          from: "wardrobeitems",
+          let: { wardrobeId: "$_id" },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    { $eq: ["$wardrobe", "$$wardrobeId"] },
+                    { $eq: ["$visibility", "public"] }
+                  ]
+                }
+              }
+            }
+          ],
+          as: "publicItems"
+        }
+      },
+
+      {
+        $group: {
+          _id: "$user",
+          totalWardrobes: { $sum: 1 },
+          totalItems: { $sum: { $size: "$publicItems" } },
+          totalWorth: { $sum: { $sum: "$publicItems.price" } }
+        }
+      },
+
+      {
+        $lookup: {
+          from: "users",
+          localField: "_id",
+          foreignField: "_id",
+          as: "user"
+        }
+      },
+      { $unwind: "$user" },
+
+      {
+        $project: {
+          type: { $literal: "collection" },
+          user: {
+            _id: "$user._id",
+            username: "$user.username",
+            photo: "$user.photo"
+          },
+          stats: {
+            totalWorth: 1,
+            totalWardrobes: 1,
+            totalItems: 1
+          }
+        }
+      },
+
+      { $sample: { size: 5 } } // random users
+    ]);
+
+    res.json(collections);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
