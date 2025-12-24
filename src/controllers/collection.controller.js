@@ -1,22 +1,13 @@
 const mongoose = require("mongoose");
 const Wardrobe = require("../models/wardrobe.model");
-const WardrobeItem = require("../models/wardrobeItem.model"); // ✅ correct case
+const WardrobeItem= require("../models/wardrobeItem.model")
 const User = require("../models/user.model");
 
-exports.getUserWardrobesWithStats = async (req, res) => {
+exports.getUserCollections = async (req, res) => {
   try {
     const { userId } = req.params;
-    const viewerId = req.user?.id;
-    const isOwner = viewerId && viewerId.toString() === userId.toString();
 
-    // Fetch user info
-    const user = await User.findById(userId).select("username photo");
-    if (!user) {
-      return res.status(404).json({ message: "User not found" });
-    }
-
-    // Single aggregation query
-    const wardrobeStats = await Wardrobe.aggregate([
+    const wardrobes = await Wardrobe.aggregate([
       {
         $match: {
           user: new mongoose.Types.ObjectId(userId)
@@ -25,79 +16,90 @@ exports.getUserWardrobesWithStats = async (req, res) => {
       {
         $lookup: {
           from: "wardrobeitems",
-          let: { wardrobeName: "$name" },
+          let: {
+            wardrobeId: "$_id",
+            wardrobeName: "$name"
+            } ,
           pipeline: [
             {
               $match: {
                 $expr: {
-                  $and: [
-                    { $eq: ["$user", new mongoose.Types.ObjectId(userId)] },
-                    { $eq: ["$wardrobe", "$$wardrobeName"] },
-                    ...(!isOwner ? [{ $eq: ["$visibility", "public"] }] : [])
-                  ]
+                    $and: [
+                    {
+                        $or: [
+                        { $eq: ["$wardrobe", "$$wardrobeId"] },
+                        { $eq: ["$wardrobe", "$$wardrobeName"] }
+                        ]
+                    },
+                    { $eq: ["$visibility", "public"] }
+                    ]
                 }
-              }
+                }
+
             }
           ],
-          as: "items"
-        }
-      },
-      {
-        $addFields: {
-          totalItems: { $size: "$items" },
-          totalWorth: { $sum: "$items.price" },
-          hasPrivateItems: isOwner ? {
-            $anyElementTrue: {
-              $map: {
-                input: "$items",
-                as: "item",
-                in: { $eq: ["$$item.visibility", "private"] }
-              }
-            }
-          } : false,
-          coverImage: {
-            $cond: {
-              if: isOwner,
-              then: {
-                $arrayElemAt: [
-                  {
-                    $filter: {
-                      input: "$items",
-                      cond: { $eq: ["$$this.visibility", "public"] },
-                      limit: 1
-                    }
-                  },
-                  0
-                ]
-              },
-              else: { $arrayElemAt: ["$items", 0] }
-            }
-          }
+          as: "publicItems"
         }
       },
       {
         $project: {
-          _id: 1,
           name: 1,
-          color: 1,
-          totalItems: 1,
-          totalWorth: 1,
-          hasPrivateItems: 1,
-          coverImage: "$coverImage.imageUrl"
+          coverImage: 1,
+          totalItems: { $size: "$publicItems" },
+          totalWorth: { $sum: "$publicItems.price" }
         }
       }
     ]);
 
-    res.json({
-      user,
-      isOwner,
-      wardrobes: wardrobeStats,
-    });
+    const user = await User.findById(userId).select("username photo");
+
+    res.json({ user, wardrobes });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+
+
+exports.getUserWardrobesWithPublicStats = async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    // 1️⃣ Get ALL wardrobes of the user
+    const wardrobes = await Wardrobe.find({ user: userId }).lean();
+
+    // 2️⃣ For each wardrobe, calculate PUBLIC item stats
+    const result = await Promise.all(
+      wardrobes.map(async (wardrobe) => {
+        const publicItems = await WardrobeItem.find({
+          user: userId,
+          wardrobe: wardrobe.name, // 🔑 IMPORTANT: name match
+          visibility: "public",
+        }).lean();
+
+        const totalItems = publicItems.length;
+
+        const totalWorth = publicItems.reduce(
+          (sum, item) => sum + (item.price || 0),
+          0
+        );
+
+        const coverImage = publicItems[0]?.imageUrl || null;
+
+        return {
+          _id: wardrobe._id,
+          name: wardrobe.name,
+          color: wardrobe.color,
+          totalItems,
+          totalWorth,
+          coverImage,
+        };
+      })
+    );
+
+    res.json({ wardrobes: result });
   } catch (err) {
-    console.error("COLLECTION CONTROLLER ERROR:", err);
-    res.status(500).json({ 
-      message: "Failed to load collections",
-      error: process.env.NODE_ENV === 'development' ? err.message : undefined
-    });
+    console.error("Collection wardrobes error:", err);
+    res.status(500).json({ message: "Failed to load wardrobes" });
   }
 };
