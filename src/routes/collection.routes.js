@@ -9,8 +9,7 @@ const {
 router.get("/:userId", getUserCollections);
 // router.get("/:userId/wardrobes", getUserWardrobesWithPublicStats);
 router.get(
-  "/:userId/wardrobes",
-  authOptional, // or auth middleware if needed
+  "/:userId/wardrobes",// or auth middleware if needed
   getUserWardrobesWithStats
 );
 
