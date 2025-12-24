@@ -1,8 +1,7 @@
 const mongoose = require("mongoose");
-const Wardrobe = require("../models/wardrobe.model.js");
-const WardrobeItem = require("../models/wardrobeItem.model.js");
-const User = require("../models/user.model.js");
-
+const Wardrobe = require("../models/wardrobe.model");
+const WardrobeItem= require("../models/wardrobeItem.model")
+const User = require("../models/user.model");
 exports.getUserWardrobesWithStats = async (req, res) => {
   try {
     const { userId } = req.params;
