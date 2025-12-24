@@ -1,90 +1,50 @@
 const mongoose = require("mongoose");
 const Wardrobe = require("../models/wardrobe.model");
-const WardrobeItem= require("../models/wardrobeItem.model")
+const WardrobeItem = require("../models/wardrobeItem.model"); // ✅ correct case
 const User = require("../models/user.model");
 
-exports.getUserCollections = async (req, res) => {
+exports.getUserWardrobesWithStats = async (req, res) => {
   try {
     const { userId } = req.params;
 
-    const wardrobes = await Wardrobe.aggregate([
-      {
-        $match: {
-          user: new mongoose.Types.ObjectId(userId)
-        }
-      },
-      {
-        $lookup: {
-          from: "wardrobeitems",
-          let: {
-            wardrobeId: "$_id",
-            wardrobeName: "$name"
-            } ,
-          pipeline: [
-            {
-              $match: {
-                $expr: {
-                    $and: [
-                    {
-                        $or: [
-                        { $eq: ["$wardrobe", "$$wardrobeId"] },
-                        { $eq: ["$wardrobe", "$$wardrobeName"] }
-                        ]
-                    },
-                    { $eq: ["$visibility", "public"] }
-                    ]
-                }
-                }
+    // viewer may be undefined (public feed)
+    const viewerId = req.user?.id;
+    const isOwner =
+      viewerId && viewerId.toString() === userId.toString();
 
-            }
-          ],
-          as: "publicItems"
-        }
-      },
-      {
-        $project: {
-          name: 1,
-          coverImage: 1,
-          totalItems: { $size: "$publicItems" },
-          totalWorth: { $sum: "$publicItems.price" }
-        }
-      }
-    ]);
-
+    // fetch user info
     const user = await User.findById(userId).select("username photo");
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
 
-    res.json({ user, wardrobes });
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-};
-
-
-
-exports.getUserWardrobesWithPublicStats = async (req, res) => {
-  try {
-    const { userId } = req.params;
-
-    // 1️⃣ Get ALL wardrobes of the user
+    // fetch all wardrobes of the user
     const wardrobes = await Wardrobe.find({ user: userId }).lean();
 
-    // 2️⃣ For each wardrobe, calculate PUBLIC item stats
-    const result = await Promise.all(
+    const wardrobesWithStats = await Promise.all(
       wardrobes.map(async (wardrobe) => {
-        const publicItems = await WardrobeItem.find({
+        const filter = {
           user: userId,
-          wardrobe: wardrobe.name, // 🔑 IMPORTANT: name match
-          visibility: "public",
-        }).lean();
+          wardrobe: wardrobe.name, // string-based relation
+        };
 
-        const totalItems = publicItems.length;
+        // restrict others to public items only
+        if (!isOwner) {
+          filter.visibility = "public";
+        }
 
-        const totalWorth = publicItems.reduce(
+        const items = await WardrobeItem.find(filter).lean();
+
+        const totalItems = items.length;
+        const totalWorth = items.reduce(
           (sum, item) => sum + (item.price || 0),
           0
         );
 
-        const coverImage = publicItems[0]?.imageUrl || null;
+        // cover image must always be PUBLIC
+        const coverImage =
+          items.find((i) => i.visibility === "public")?.imageUrl ||
+          null;
 
         return {
           _id: wardrobe._id,
@@ -93,13 +53,20 @@ exports.getUserWardrobesWithPublicStats = async (req, res) => {
           totalItems,
           totalWorth,
           coverImage,
+          hasPrivateItems: isOwner
+            ? items.some((i) => i.visibility === "private")
+            : false,
         };
       })
     );
 
-    res.json({ wardrobes: result });
+    res.json({
+      user,
+      isOwner,
+      wardrobes: wardrobesWithStats,
+    });
   } catch (err) {
-    console.error("Collection wardrobes error:", err);
-    res.status(500).json({ message: "Failed to load wardrobes" });
+    console.error("COLLECTION CONTROLLER ERROR:", err);
+    res.status(500).json({ message: "Failed to load collections" });
   }
 };
