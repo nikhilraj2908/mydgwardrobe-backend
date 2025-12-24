@@ -1,90 +1,55 @@
 const mongoose = require("mongoose");
 const Wardrobe = require("../models/wardrobe.model");
-const WardrobeItem= require("../models/wardrobeItem.model")
+const WardrobeItem = require("../models/wardrobeItem.model");
 const User = require("../models/user.model");
 
-exports.getUserCollections = async (req, res) => {
+exports.getUserWardrobesWithStats = async (req, res) => {
   try {
     const { userId } = req.params;
 
-    const wardrobes = await Wardrobe.aggregate([
-      {
-        $match: {
-          user: new mongoose.Types.ObjectId(userId)
-        }
-      },
-      {
-        $lookup: {
-          from: "wardrobeitems",
-          let: {
-            wardrobeId: "$_id",
-            wardrobeName: "$name"
-            } ,
-          pipeline: [
-            {
-              $match: {
-                $expr: {
-                    $and: [
-                    {
-                        $or: [
-                        { $eq: ["$wardrobe", "$$wardrobeId"] },
-                        { $eq: ["$wardrobe", "$$wardrobeName"] }
-                        ]
-                    },
-                    { $eq: ["$visibility", "public"] }
-                    ]
-                }
-                }
+    // Viewer (may be undefined)
+    const viewerId = req.user?.id;
+    const isOwner =
+      viewerId && viewerId.toString() === userId.toString();
 
-            }
-          ],
-          as: "publicItems"
-        }
-      },
-      {
-        $project: {
-          name: 1,
-          coverImage: 1,
-          totalItems: { $size: "$publicItems" },
-          totalWorth: { $sum: "$publicItems.price" }
-        }
-      }
-    ]);
+    // Get user info (for header)
+    const user = await User.findById(userId).select(
+      "username photo"
+    );
 
-    const user = await User.findById(userId).select("username photo");
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
 
-    res.json({ user, wardrobes });
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-};
-
-
-
-exports.getUserWardrobesWithPublicStats = async (req, res) => {
-  try {
-    const { userId } = req.params;
-
-    // 1️⃣ Get ALL wardrobes of the user
+    // Get ALL wardrobes of user
     const wardrobes = await Wardrobe.find({ user: userId }).lean();
 
-    // 2️⃣ For each wardrobe, calculate PUBLIC item stats
     const result = await Promise.all(
       wardrobes.map(async (wardrobe) => {
-        const publicItems = await WardrobeItem.find({
+        // Build item filter
+        const itemFilter = {
           user: userId,
-          wardrobe: wardrobe.name, // 🔑 IMPORTANT: name match
-          visibility: "public",
-        }).lean();
+          wardrobe: wardrobe.name, // string match (correct)
+        };
 
-        const totalItems = publicItems.length;
+        // Only others are restricted to public
+        if (!isOwner) {
+          itemFilter.visibility = "public";
+        }
 
-        const totalWorth = publicItems.reduce(
+        const items = await WardrobeItem.find(itemFilter).lean();
+
+        const totalItems = items.length;
+
+        const totalWorth = items.reduce(
           (sum, item) => sum + (item.price || 0),
           0
         );
 
-        const coverImage = publicItems[0]?.imageUrl || null;
+        // Cover image should ALWAYS come from a public item
+        const coverImage =
+          items.find((i) => i.visibility === "public")
+            ?.imageUrl || null;
 
         return {
           _id: wardrobe._id,
@@ -93,13 +58,20 @@ exports.getUserWardrobesWithPublicStats = async (req, res) => {
           totalItems,
           totalWorth,
           coverImage,
+          hasPrivateItems: isOwner
+            ? items.some((i) => i.visibility === "private")
+            : false,
         };
       })
     );
 
-    res.json({ wardrobes: result });
-  } catch (err) {
-    console.error("Collection wardrobes error:", err);
-    res.status(500).json({ message: "Failed to load wardrobes" });
+    res.json({
+      user,
+      isOwner,
+      wardrobes: result,
+    });
+  } catch (error) {
+    console.error("COLLECTION CONTROLLER ERROR:", error);
+    res.status(500).json({ message: error.message });
   }
 };
