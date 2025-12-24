@@ -45,6 +45,7 @@ app.use("/api/like", likeRoutes);
 app.use("/api/comment", commentRoutes);
 app.use("/uploads", express.static("uploads"));
 app.use("/api/collections", collectionRoutes);
+
 /* ================= START ================= */
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
