@@ -237,11 +237,54 @@ const items = await WardrobeItem.find({
 
   res.json({ wardrobe, items });
 };
+/* ======================================================
+   DELETE WARDROBE ITEM
+====================================================== */
+const deleteWardrobeItem = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { itemId } = req.params;
+
+    // 1️⃣ Find item
+    const item = await WardrobeItem.findById(itemId);
+
+    if (!item) {
+      return res.status(404).json({ message: "Item not found" });
+    }
+
+    // 2️⃣ Ownership check
+    if (item.user.toString() !== userId) {
+      return res.status(403).json({ message: "Not authorized" });
+    }
+
+    // 3️⃣ Find wardrobe (by name + user)
+    const wardrobe = await Wardrobe.findOne({
+      user: userId,
+      name: item.wardrobe,
+    });
+
+    // 4️⃣ Delete item
+    await item.deleteOne();
+
+    // 5️⃣ Decrease wardrobe itemCount
+    if (wardrobe) {
+      await Wardrobe.findByIdAndUpdate(wardrobe._id, {
+        $inc: { itemCount: -1 },
+      });
+    }
+
+    res.json({ message: "Item deleted successfully" });
+  } catch (err) {
+    console.error("DELETE WARDROBE ITEM ERROR:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
 
 module.exports = {
   addWardrobeItem,
   getMyWardrobeItems,
    createWardrobe,
   getMyWardrobes,
-  getWardrobePublicItems
+  getWardrobePublicItems,
+  deleteWardrobeItem,
 };

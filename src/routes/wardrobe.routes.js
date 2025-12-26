@@ -7,9 +7,10 @@ const auth = require("../middlewares/auth.middleware");
 const {
   addWardrobeItem,
   getMyWardrobeItems,
-   createWardrobe,
+  createWardrobe,
   getMyWardrobes,
   getWardrobePublicItems,
+  deleteWardrobeItem,
 } = require("../controllers/wardrobe.controller");
 
 /* Add Item */
@@ -43,5 +44,6 @@ router.get(
   "/public/:wardrobeId",
   getWardrobePublicItems
 );
+router.delete("/item/:itemId", auth, deleteWardrobeItem);
 
 module.exports = router;
