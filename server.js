@@ -10,6 +10,7 @@ const feedRoutes = require("./src/routes/feed.routes");
 const likeRoutes = require("./src/routes/like.routes");
 const commentRoutes = require("./src/routes/comment.routes");
 const collectionRoutes = require("./src/routes/collection.routes");
+const storyRotes=require("./src/routes/story.routes")
 // const viewRoutes = require(".src/routes/view.routes");
 const app = express();
 
@@ -47,7 +48,7 @@ app.use("/api/comment", commentRoutes);
 app.use("/uploads", express.static("uploads"));
 app.use("/api/collections", collectionRoutes);
 // app.use("/api/view", viewRoutes);
-
+app.use("/api/story", storyRotes);
 
 /* ================= START ================= */
 const PORT = process.env.PORT || 5000;

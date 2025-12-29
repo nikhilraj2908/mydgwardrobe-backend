@@ -15,7 +15,9 @@ const storage = multer.diskStorage({
     if (req.originalUrl.includes("/wardrobe")) {
       uploadPath = "uploads/wardrobe";
     }
-
+  if (req.originalUrl.includes("/story")) {
+    uploadPath = "uploads/story";
+  }
     // Ensure folder exists
     fs.mkdirSync(uploadPath, { recursive: true });
 
