@@ -6,6 +6,7 @@ const {
   createStory,
   getActiveStories,
   deleteStory,
+  markStoryViewed,
 } = require("../controllers/story.controller");
 
 
@@ -23,5 +24,8 @@ router.get("/", auth, getActiveStories);
 
 /* Delete Story */
 router.delete("/:id", auth, deleteStory);
+
+router.post("/:id/view", auth, markStoryViewed);
+
 
 module.exports = router;

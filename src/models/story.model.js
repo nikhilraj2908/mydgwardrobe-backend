@@ -9,7 +9,7 @@ const storySchema = new mongoose.Schema(
     },
 
     media: {
-      type: String, // image or video URL
+      type: String,
       required: true,
     },
 
@@ -20,14 +20,21 @@ const storySchema = new mongoose.Schema(
     },
 
     duration: {
-      type: Number, // seconds (e.g. 10, 30, 3600)
-      default: 10,
+      type: Number,
+      default: 5,
     },
+
+    viewers: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+      },
+    ],
 
     expiresAt: {
       type: Date,
       required: true,
-      index: { expires: 0 }, // Mongo auto-delete
+      index: { expires: 0 },
     },
   },
   { timestamps: true }

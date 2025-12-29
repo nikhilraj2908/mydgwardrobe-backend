@@ -46,16 +46,18 @@ exports.getActiveStories = async (req, res) => {
       expiresAt: { $gt: new Date() },
     })
       .populate("user", "username photo")
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: 1 });
 
-    // group stories by user
     const grouped = {};
-    stories.forEach(story => {
-      const uid = story.user._id;
-      if (!grouped[uid]) grouped[uid] = {
-        user: story.user,
-        stories: [],
-      };
+
+    stories.forEach((story) => {
+      const uid = story.user._id.toString();
+      if (!grouped[uid]) {
+        grouped[uid] = {
+          user: story.user,
+          stories: [],
+        };
+      }
       grouped[uid].stories.push(story);
     });
 
@@ -64,6 +66,7 @@ exports.getActiveStories = async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 };
+
 
 /* ================= DELETE STORY ================= */
 exports.deleteStory = async (req, res) => {
@@ -75,4 +78,17 @@ exports.deleteStory = async (req, res) => {
 
   await story.deleteOne();
   res.json({ success: true });
+};
+
+exports.markStoryViewed = async (req, res) => {
+  const story = await Story.findById(req.params.id);
+
+  if (!story) return res.sendStatus(404);
+
+  if (!story.viewers.includes(req.user._id)) {
+    story.viewers.push(req.user._id);
+    await story.save();
+  }
+
+  res.json({ views: story.viewers.length });
 };
