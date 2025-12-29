@@ -4,20 +4,23 @@ const fs = require("fs");
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    let uploadPath = "uploads/others";
+    let uploadPath = "uploads/others"; // default (safe)
 
-    // 🔹 Profile DP upload
-    if (req.originalUrl.includes("/user")) {
+    // ✅ Story uploads
+    if (req.originalUrl.startsWith("/api/story")) {
+      uploadPath = "uploads/story";
+    }
+
+    // ✅ Wardrobe uploads (if you want separation)
+    else if (req.originalUrl.startsWith("/api/wardrobe")) {
+      uploadPath = "uploads/wardrobe";
+    }
+
+    // ✅ Profile uploads
+    else if (req.originalUrl.startsWith("/api/user")) {
       uploadPath = "uploads/profile";
     }
 
-    // 🔹 Wardrobe item upload
-    if (req.originalUrl.includes("/wardrobe")) {
-      uploadPath = "uploads/wardrobe";
-    }
-  if (req.originalUrl.includes("/story")) {
-    uploadPath = "uploads/story";
-  }
     // Ensure folder exists
     fs.mkdirSync(uploadPath, { recursive: true });
 
@@ -25,25 +28,30 @@ const storage = multer.diskStorage({
   },
 
   filename: (req, file, cb) => {
-    const unique =
-      Date.now() + "-" + Math.round(Math.random() * 1e9);
-    cb(null, unique + path.extname(file.originalname));
+    const uniqueName =
+      Date.now() +
+      "-" +
+      Math.round(Math.random() * 1e9) +
+      path.extname(file.originalname);
+
+    cb(null, uniqueName);
   },
 });
 
 const fileFilter = (req, file, cb) => {
-  const allowed = /jpg|jpeg|png|webp/;
-  const ext = allowed.test(
-    path.extname(file.originalname).toLowerCase()
-  );
-  const mime = allowed.test(file.mimetype);
-
-  if (ext && mime) cb(null, true);
-  else cb(new Error("Only images allowed"));
+  // Allow images & videos everywhere
+  if (
+    file.mimetype.startsWith("image/") ||
+    file.mimetype.startsWith("video/")
+  ) {
+    cb(null, true);
+  } else {
+    cb(new Error("Only image or video files are allowed"), false);
+  }
 };
 
 module.exports = multer({
   storage,
-  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
   fileFilter,
+  limits: { fileSize: 50 * 1024 * 1024 }, // 50MB
 });
