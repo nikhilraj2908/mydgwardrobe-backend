@@ -3,16 +3,33 @@ const Story = require("../models/story.model");
 /* ================= CREATE STORY ================= */
 exports.createStory = async (req, res) => {
   try {
-    const { duration } = req.body;
+    if (!req.user) {
+      return res.status(401).json({ message: "Unauthenticated" });
+    }
 
-    const expiresInSeconds = Number(duration) || 10;
+    if (!req.file) {
+      return res.status(400).json({ message: "Media file required" });
+    }
+
+    const displayDuration = Number(req.body.duration) || 10;
+
+    const mediaType = req.file.mimetype.startsWith("video")
+      ? "video"
+      : "image";
 
     const story = await Story.create({
       user: req.user._id,
-      media: req.file?.path || req.body.media,
-      mediaType: req.body.mediaType || "image",
-      duration: expiresInSeconds,
-      expiresAt: new Date(Date.now() + expiresInSeconds * 1000),
+
+      // ✅ store relative path
+      media: `/uploads/story/${req.file.filename}`,
+
+      mediaType,
+
+      // ✅ UI playback time only
+      duration: displayDuration,
+
+      // ✅ FEED LIFETIME → 24 HOURS
+      expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
     });
 
     res.status(201).json(story);
@@ -20,6 +37,7 @@ exports.createStory = async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 };
+
 
 /* ================= GET ACTIVE STORIES ================= */
 exports.getActiveStories = async (req, res) => {
