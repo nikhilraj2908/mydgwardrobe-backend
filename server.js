@@ -12,6 +12,7 @@ const commentRoutes = require("./src/routes/comment.routes");
 const collectionRoutes = require("./src/routes/collection.routes");
 const storyRotes=require("./src/routes/story.routes")
 // const viewRoutes = require(".src/routes/view.routes");
+const savedRoutes = require("./src/routes/saved.routes");
 const app = express();
 
 /* ================= CORS ================= */
@@ -53,7 +54,7 @@ app.use("/uploads", express.static("uploads"));
 app.use("/api/collections", collectionRoutes);
 // app.use("/api/view", viewRoutes);
 app.use("/api/story", storyRotes);
-
+app.use("/api/saved", savedRoutes);
 /* ================= START ================= */
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
