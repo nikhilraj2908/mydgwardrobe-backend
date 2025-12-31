@@ -280,6 +280,7 @@ const deleteWardrobeItem = async (req, res) => {
   }
 };
 
+
 module.exports = {
   addWardrobeItem,
   getMyWardrobeItems,

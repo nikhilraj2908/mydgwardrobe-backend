@@ -12,7 +12,7 @@ const {
   getWardrobePublicItems,
   deleteWardrobeItem,
 } = require("../controllers/wardrobe.controller");
-
+const { getExploreItems } = require("../controllers/explore.controller");
 /* Add Item */
 router.post(
   "/add",
@@ -45,5 +45,5 @@ router.get(
   getWardrobePublicItems
 );
 router.delete("/item/:itemId", auth, deleteWardrobeItem);
-
+router.get("/explore", getExploreItems);
 module.exports = router;
