@@ -281,6 +281,23 @@ const deleteWardrobeItem = async (req, res) => {
 };
 
 
+const getSingleWardrobeItem= async(req,res)=>{
+  try{
+    const { id }=req.params;
+    const item= await WardrobeItem.findById(id)
+    .populate("user","username photo")
+    .lean();
+    if(!item){
+      return res.status(404).json({message:"Item not found"});
+    }
+    res.json(item);
+  }
+  catch(err){
+    consol.error("Get single item error:",err);
+    res.status(500).json({message:"server error"});
+  }
+}
+
 module.exports = {
   addWardrobeItem,
   getMyWardrobeItems,
@@ -288,4 +305,5 @@ module.exports = {
   getMyWardrobes,
   getWardrobePublicItems,
   deleteWardrobeItem,
+  getSingleWardrobeItem,
 };
