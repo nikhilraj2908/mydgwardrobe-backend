@@ -1,4 +1,5 @@
 const Like = require("../models/like.model");
+const Notification = require("../models/notification.model");
 
 /* ======================================================
    TOGGLE LIKE
@@ -9,18 +10,48 @@ exports.toggleLike = async (req, res) => {
     const { postType, postId } = req.body;
 
     if (!postType || !postId) {
-      return res.status(400).json({ message: "postType and postId required" });
+      return res
+        .status(400)
+        .json({ message: "postType and postId required" });
     }
 
-    const existing = await Like.findOne({ user: userId, postType, postId });
+    const existing = await Like.findOne({
+      user: userId,
+      postType,
+      postId,
+    });
 
+    // UNLIKE
     if (existing) {
       await existing.deleteOne();
       return res.json({ liked: false });
     }
 
-    await Like.create({ user: userId, postType, postId });
-    res.json({ liked: true });
+    // LIKE
+    const like = await Like.create({
+      user: userId,
+      postType,
+      postId,
+    });
+
+    // 🔔 CREATE NOTIFICATION (ONLY ON NEW LIKE)
+    if (postType === "item") {
+      const item = await require("../models/wardrobeItem.model").findById(
+        postId
+      );
+
+      if (item && item.user.toString() !== userId) {
+        await Notification.create({
+          user: item.user,        // receiver
+          actor: userId,          // who liked
+          type: "like",
+          item: item._id,
+          message: "liked your item",
+        });
+      }
+    }
+
+    return res.json({ liked: true });
   } catch (err) {
     console.error("LIKE ERROR:", err);
     res.status(500).json({ message: "Server error" });

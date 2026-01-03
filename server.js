@@ -14,6 +14,7 @@ const storyRotes=require("./src/routes/story.routes")
 // const viewRoutes = require(".src/routes/view.routes");
 const savedRoutes = require("./src/routes/saved.routes");
 const getCategory= require('./src/routes/category.routes');
+const notificationRoutes = require("./src/routes/notification.routes");
 const app = express();
 
 /* ================= CORS ================= */
@@ -58,6 +59,8 @@ app.use("/api/story", storyRotes);
 app.use("/api/saved", savedRoutes);
 /* ================= START ================= */
 app.use("/api/categories",getCategory);
+
+app.use("/api", notificationRoutes);
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
