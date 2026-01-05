@@ -76,16 +76,30 @@ exports.getComments = async (req, res) => {
  * DELETE /api/comment/:commentId
  * Delete comment (only owner)
  */
+
 exports.deleteComment = async (req, res) => {
   try {
     const userId = req.user.id;
     const { commentId } = req.params;
 
     const comment = await Comment.findById(commentId);
-    if (!comment)
+    if (!comment) {
       return res.status(404).json({ message: "Comment not found" });
+    }
 
-    if (comment.user.toString() !== userId) {
+    // Find the post/item
+    const item = await WardrobeItem.findById(comment.post);
+    if (!item) {
+      return res.status(404).json({ message: "Post not found" });
+    }
+
+    const isCommentOwner =
+      comment.user.toString() === userId;
+
+    const isPostOwner =
+      item.user.toString() === userId;
+
+    if (!isCommentOwner && !isPostOwner) {
       return res.status(403).json({ message: "Not allowed" });
     }
 
