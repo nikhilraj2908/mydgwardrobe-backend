@@ -531,6 +531,18 @@ const googleAuth = async (req, res) => {
   }
 };
 
+const getMe = async (req, res) => {
+  try {
+    // your other controllers already use req.user.id (same as comment delete)
+    const user = await User.findById(req.user.id).select("_id username photo");
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    res.json({ user });
+  } catch (err) {
+    console.error("GET ME ERROR:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
 
 const completeProfile = async (req, res) => {
   try {
@@ -589,4 +601,5 @@ module.exports = {
   resetPassword,
   googleAuth,
   completeProfile,
+  getMe,
 };
