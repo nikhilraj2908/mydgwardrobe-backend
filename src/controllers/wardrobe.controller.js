@@ -137,7 +137,7 @@ const addWardrobeItem = async (req, res) => {
 ====================================================== */
 const getMyWardrobeItems = async (req, res) => {
   try {
-   const userId = req.user._id;
+    const userId = req.user._id;
 
     const items = await WardrobeItem.find({ user: userId })
       .sort({ createdAt: -1 });
@@ -154,7 +154,7 @@ const getMyWardrobeItems = async (req, res) => {
 ========================================================= */
 const createWardrobe = async (req, res) => {
   try {
-    const userId = req.user.id;
+    const userId = req.user._id
     const { name, color } = req.body;
 
     if (!name || !color) {
@@ -267,7 +267,7 @@ const getWardrobePublicItems = async (req, res) => {
 ====================================================== */
 const deleteWardrobeItem = async (req, res) => {
   try {
-    const userId = req.user.id;
+    const userId = req.user._id;
     const { itemId } = req.params;
 
     // 1️⃣ Find item
@@ -278,7 +278,7 @@ const deleteWardrobeItem = async (req, res) => {
     }
 
     // 2️⃣ Ownership check
-    if (item.user.toString() !== userId) {
+    if (item.user.toString() !== userId.toString()) {
       return res.status(403).json({ message: "Not authorized" });
     }
 
@@ -303,27 +303,27 @@ const deleteWardrobeItem = async (req, res) => {
 };
 
 
-const getSingleWardrobeItem= async(req,res)=>{
-  try{
-    const { id }=req.params;
-    const item= await WardrobeItem.findById(id)
-    .populate("user","username photo")
-    .lean();
-    if(!item){
-      return res.status(404).json({message:"Item not found"});
+const getSingleWardrobeItem = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const item = await WardrobeItem.findById(id)
+      .populate("user", "username photo")
+      .lean();
+    if (!item) {
+      return res.status(404).json({ message: "Item not found" });
     }
     res.json(item);
   }
-  catch(err){
-    consol.error("Get single item error:",err);
-    res.status(500).json({message:"server error"});
+  catch (err) {
+    console.error("Get single item error:", err);
+    res.status(500).json({ message: "server error" });
   }
 }
 
 module.exports = {
   addWardrobeItem,
   getMyWardrobeItems,
-   createWardrobe,
+  createWardrobe,
   getMyWardrobes,
   getWardrobePublicItems,
   deleteWardrobeItem,
