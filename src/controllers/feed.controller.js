@@ -55,24 +55,24 @@ exports.getPublicFeed = async (req, res) => {
         },
       },
 
-     {
-  $addFields: {
-    publicItems: {
-      $filter: {
-        input: "$items",
-        as: "item",
-        cond: { $eq: ["$$item.visibility", "public"] }
+      {
+        $addFields: {
+          publicItems: {
+            $filter: {
+              input: "$items",
+              as: "item",
+              cond: { $eq: ["$$item.visibility", "public"] }
+            }
+          }
+        }
+      },
+      {
+        $addFields: {
+          totalItems: { $size: "$publicItems" },
+          totalWorth: { $sum: "$publicItems.price" }
+        }
       }
-    }
-  }
-},
-{
-  $addFields: {
-    totalItems: { $size: "$publicItems" },
-    totalWorth: { $sum: "$publicItems.price" }
-  }
-}
-,
+      ,
 
       {
         $lookup: {
@@ -124,72 +124,89 @@ exports.getPublicFeed = async (req, res) => {
 exports.getCollectionFeed = async (req, res) => {
   try {
     const collections = await Wardrobe.aggregate([
+      /* ===============================
+         Join public items correctly
+      =============================== */
       {
-  $lookup: {
-    from: "wardrobeitems",
-    let: { wardrobeName: "$name" },
-    pipeline: [
-      {
-        $match: {
-          $expr: {
-            $and: [
-              { $eq: ["$wardrobe", "$$wardrobeName"] },
-              { $eq: ["$visibility", "public"] }
-            ]
-          }
-        }
-      }
-    ],
-    as: "publicItems"
-  }
-}
-,
+        $lookup: {
+          from: "wardrobeitems",
+          localField: "_id",          // ✅ Wardrobe _id
+          foreignField: "wardrobe",   // ✅ ObjectId reference
+          as: "items",
+        },
+      },
 
+      {
+        $addFields: {
+          publicItems: {
+            $filter: {
+              input: "$items",
+              as: "item",
+              cond: { $eq: ["$$item.visibility", "public"] },
+            },
+          },
+        },
+      },
+
+      {
+        $addFields: {
+          totalItems: { $size: "$publicItems" },
+          totalWorth: { $sum: "$publicItems.price" },
+        },
+      },
+
+      /* ===============================
+         Group by USER = COLLECTION
+      =============================== */
       {
         $group: {
           _id: "$user",
           totalWardrobes: { $sum: 1 },
-          totalItems: { $sum: { $size: "$publicItems" } },
-          totalWorth: { $sum: { $sum: "$publicItems.price" } }
-        }
+          totalItems: { $sum: "$totalItems" },
+          totalWorth: { $sum: "$totalWorth" },
+        },
       },
 
+      /* ===============================
+         Join user info
+      =============================== */
       {
         $lookup: {
           from: "users",
           localField: "_id",
           foreignField: "_id",
-          as: "user"
-        }
+          as: "user",
+        },
       },
       { $unwind: "$user" },
 
+      /* ===============================
+         Final shape (frontend-ready)
+      =============================== */
       {
-  $project: {
-    _id: "$_id",
-    type: { $literal: "collection" },
+        $project: {
+          _id: "$_id",
+          type: { $literal: "collection" },
+          user: {
+            _id: "$user._id",
+            username: "$user.username",
+            photo: "$user.photo",
+          },
+          stats: {
+            totalWorth: "$totalWorth",
+            totalWardrobes: "$totalWardrobes",
+            totalItems: "$totalItems",
+          },
+        },
+      },
 
-    user: {
-      _id: "$user._id",
-      username: "$user.username",
-      photo: "$user.photo"
-    },
-
-    stats: {
-      totalWorth: "$totalWorth",
-      totalWardrobes: "$totalWardrobes",
-      totalItems: "$totalItems"
-    }
-  }
-}
-,
-
-      { $sample: { size: 5 } } // random users
+      { $sample: { size: 5 } },
     ]);
 
     res.json(collections);
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    console.error("COLLECTION FEED ERROR:", err);
+    res.status(500).json({ message: "Server error" });
   }
 };
 
