@@ -137,7 +137,7 @@ const addWardrobeItem = async (req, res) => {
 ====================================================== */
 const getMyWardrobeItems = async (req, res) => {
   try {
-    const userId = req.user.id;
+   const userId = req.user._id;
 
     const items = await WardrobeItem.find({ user: userId })
       .sort({ createdAt: -1 });
@@ -203,22 +203,21 @@ const createWardrobe = async (req, res) => {
 // };
 const getMyWardrobes = async (req, res) => {
   try {
-    const userId = req.user.id;
+    const userId = req.user._id;
 
-    // 1️⃣ Fetch wardrobes
     const wardrobes = await Wardrobe.find({ user: userId })
       .sort({ createdAt: -1 })
       .lean();
 
-    // 2️⃣ Fetch all items once
-    const items = await WardrobeItem.find({ user: userId }).lean();
+    const items = await WardrobeItem.find({ user: userId })
+      .select("wardrobe price")
+      .lean();
 
-    // 3️⃣ Attach itemCount & totalWorth
     const enrichedWardrobes = wardrobes.map((wardrobe) => {
       const wardrobeItems = items.filter(
         (item) =>
           item.wardrobe &&
-          item.wardrobe.toLowerCase() === wardrobe.name.toLowerCase()
+          item.wardrobe.toString() === wardrobe._id.toString()
       );
 
       const totalWorth = wardrobeItems.reduce(
@@ -229,7 +228,7 @@ const getMyWardrobes = async (req, res) => {
       return {
         ...wardrobe,
         itemCount: wardrobeItems.length,
-        totalWorth, // 🔥 THIS IS WHAT YOU NEED
+        totalWorth,
       };
     });
 
@@ -241,23 +240,28 @@ const getMyWardrobes = async (req, res) => {
 };
 
 
+
 const getWardrobePublicItems = async (req, res) => {
-  const { wardrobeId } = req.params;
+  try {
+    const { wardrobeId } = req.params;
 
-  const wardrobe = await Wardrobe.findById(wardrobeId).select("name");
+    const wardrobe = await Wardrobe.findById(wardrobeId).lean();
+    if (!wardrobe) {
+      return res.status(404).json({ message: "Wardrobe not found" });
+    }
 
-if (!wardrobe) {
-  return res.status(404).json({ message: "Wardrobe not found" });
-}
+    const items = await WardrobeItem.find({
+      wardrobe: wardrobe._id,
+      visibility: "public",
+    }).lean();
 
-const items = await WardrobeItem.find({
-  wardrobe: wardrobe.name, // ✅ STRING MATCH
-  visibility: "public"
-});
-
-
-  res.json({ wardrobe, items });
+    res.json({ wardrobe, items });
+  } catch (err) {
+    console.error("GET PUBLIC WARDROBE ERROR:", err);
+    res.status(500).json({ message: "Server error" });
+  }
 };
+
 /* ======================================================
    DELETE WARDROBE ITEM
 ====================================================== */
@@ -279,10 +283,7 @@ const deleteWardrobeItem = async (req, res) => {
     }
 
     // 3️⃣ Find wardrobe (by name + user)
-    const wardrobe = await Wardrobe.findOne({
-      user: userId,
-      name: item.wardrobe,
-    });
+    const wardrobe = await Wardrobe.findById(item.wardrobe);
 
     // 4️⃣ Delete item
     await item.deleteOne();
