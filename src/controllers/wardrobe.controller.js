@@ -320,6 +320,23 @@ const getSingleWardrobeItem = async (req, res) => {
   }
 }
 
+const getWardrobeItemsByWardrobe = async (req, res) => {
+  try {
+    const { wardrobeId } = req.params;
+    const userId = req.user._id;
+
+    const items = await WardrobeItem.find({
+      user: userId,
+      wardrobe: wardrobeId, // ✅ ObjectId match
+    }).sort({ createdAt: -1 });
+
+    res.json(items);
+  } catch (err) {
+    console.error("WARDROBE ITEMS ERROR:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
 module.exports = {
   addWardrobeItem,
   getMyWardrobeItems,
@@ -328,4 +345,5 @@ module.exports = {
   getWardrobePublicItems,
   deleteWardrobeItem,
   getSingleWardrobeItem,
+  getWardrobeItemsByWardrobe,
 };

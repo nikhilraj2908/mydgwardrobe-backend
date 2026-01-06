@@ -11,7 +11,8 @@ const {
   getMyWardrobes,
   getWardrobePublicItems,
   deleteWardrobeItem,
-  getSingleWardrobeItem
+  getSingleWardrobeItem,
+  getWardrobeItemsByWardrobe
 } = require("../controllers/wardrobe.controller");
 const { getExploreItems } = require("../controllers/explore.controller");
 /* Add Item */
@@ -48,6 +49,10 @@ router.get(
 router.delete("/item/:itemId", auth, deleteWardrobeItem);
 router.get("/explore", getExploreItems);
 router.get("/item/:id",getSingleWardrobeItem);
-
+router.get(
+  "/:wardrobeId/items",
+  auth,
+  getWardrobeItemsByWardrobe
+);
 
 module.exports = router;
