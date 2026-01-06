@@ -53,22 +53,11 @@ const Wardrobe = require("../models/wardrobe.model");
 ====================================================== */
 const addWardrobeItem = async (req, res) => {
   try {
-    console.log("REQ.FILE =>", req.file);
-    console.log("REQ.BODY =>", req.body);
-
     if (!req.file) {
-      return res.status(400).json({
-        message: "Image file is required",
-      });
+      return res.status(400).json({ message: "Image file is required" });
     }
 
-    const {
-      category,
-      wardrobe,
-      brand,
-      visibility,
-    } = req.body;
-
+    const { category, wardrobe, brand, visibility } = req.body;
     const price = Number(req.body.price || 0);
 
     if (!category || !wardrobe) {
@@ -77,22 +66,63 @@ const addWardrobeItem = async (req, res) => {
       });
     }
 
+    /* ===============================
+       1️⃣ FIND OR CREATE WARDROBE
+       =============================== */
+
+    let wardrobeDoc = await Wardrobe.findOne({
+      name: wardrobe.trim(),
+      user: req.user._id,
+    });
+
+    if (!wardrobeDoc) {
+      wardrobeDoc = await Wardrobe.create({
+        name: wardrobe.trim(),
+        user: req.user._id,
+        color: "#A855F7",   // ✅ REQUIRED FIELD
+        itemCount: 0,
+        isDefault: false,
+      });
+    }
+
+    /* ===============================
+       2️⃣ CREATE WARDROBE ITEM
+       =============================== */
+
     const item = await WardrobeItem.create({
-      user: req.user._id, // ✅ must be _id
-      imageUrl: req.file.path, // ✅ CORRECT for diskStorage
+      user: req.user._id,
+      wardrobe: wardrobeDoc._id, // ✅ ObjectId
+      imageUrl: req.file.path,
       category,
-      wardrobe,
       price,
       brand,
       visibility: visibility || "private",
     });
 
+    /* ===============================
+       3️⃣ UPDATE ITEM COUNT
+       =============================== */
+
+    await Wardrobe.findByIdAndUpdate(
+      wardrobeDoc._id,
+      { $inc: { itemCount: 1 } }
+    );
+
     res.status(201).json({
       message: "Item added to wardrobe successfully",
+      wardrobe: wardrobeDoc,
       item,
     });
+
   } catch (error) {
     console.error("ADD WARDROBE ITEM ERROR:", error);
+
+    // Duplicate wardrobe edge-case safety
+    if (error.code === 11000) {
+      return res.status(409).json({
+        message: "Wardrobe with this name already exists",
+      });
+    }
 
     res.status(500).json({
       message: "Internal server error while adding wardrobe item",
