@@ -51,65 +51,56 @@ const Wardrobe = require("../models/wardrobe.model");
 /* ======================================================
    ADD ITEM TO WARDROBE (AUTO-CREATE WARDROBE IF NEEDED)
 ====================================================== */
-const addWardrobeItem = async (req, res) => {
+exports.addWardrobeItem = async (req, res) => {
   try {
-    const userId = req.user.id;
-    const { category, wardrobe, price, brand, visibility } = req.body;
-
-    console.log("REQ BODY:", req.body);
-    console.log("REQ FILE:", req.file);
+    console.log("REQ.FILE =>", req.file);
+    console.log("REQ.BODY =>", req.body);
 
     if (!req.file) {
-      return res.status(400).json({ message: "Image required" });
-    }
-
-    if (!category || !wardrobe) {
-      return res
-        .status(400)
-        .json({ message: "Category and wardrobe required" });
-    }
-
-    // 1️⃣ Find or create wardrobe
-    let wardrobeDoc = await Wardrobe.findOne({
-      user: userId,
-      name: wardrobe.trim(),
-    });
-
-    if (!wardrobeDoc) {
-      wardrobeDoc = await Wardrobe.create({
-        user: userId,
-        name: wardrobe.trim(),
-        color: "#A855F7", // default color (can be changed later)
-        itemCount: 0,
+      return res.status(400).json({
+        message: "Image file is required",
       });
     }
 
-    // 2️⃣ Create wardrobe item
-    const item = await WardrobeItem.create({
-      user: userId,
-      imageUrl: `/uploads/wardrobe/${req.file.filename}`,
+    const {
       category,
-      wardrobe: wardrobeDoc.name, // keep string for backward compatibility
-      price,
+      wardrobe,
       brand,
       visibility,
-    });
+    } = req.body;
 
-    // 3️⃣ Increment item count
-    await Wardrobe.findByIdAndUpdate(wardrobeDoc._id, {
-      $inc: { itemCount: 1 },
+    const price = Number(req.body.price || 0);
+
+    if (!category || !wardrobe) {
+      return res.status(400).json({
+        message: "Category and wardrobe are required",
+      });
+    }
+
+    const item = await WardrobeItem.create({
+      user: req.user._id, // ✅ must be _id
+      imageUrl: req.file.path, // ✅ CORRECT for diskStorage
+      category,
+      wardrobe,
+      price,
+      brand,
+      visibility: visibility || "private",
     });
 
     res.status(201).json({
-      message: "Item added to wardrobe",
+      message: "Item added to wardrobe successfully",
       item,
-      wardrobe: wardrobeDoc,
     });
-  } catch (err) {
-    console.error("ADD WARDROBE ERROR:", err);
-    res.status(500).json({ message: "Server error" });
+  } catch (error) {
+    console.error("ADD WARDROBE ITEM ERROR:", error);
+
+    res.status(500).json({
+      message: "Internal server error while adding wardrobe item",
+      error: error.message,
+    });
   }
 };
+
 
 /* ======================================================
    GET USER WARDROBE ITEMS
