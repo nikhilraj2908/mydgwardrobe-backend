@@ -46,14 +46,19 @@ const getMySavedItems = async (req, res) => {
         path: "item",
         populate: { path: "user", select: "username photo" },
       })
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 })
+      .lean();
 
-    res.json(savedItems);
+    // ✅ REMOVE broken references
+    const cleaned = savedItems.filter((s) => s.item);
+
+    res.json(cleaned);
   } catch (err) {
     console.error("GET SAVED ITEMS ERROR:", err);
     res.status(500).json({ message: "Server error" });
   }
 };
+
 
 module.exports = {
   toggleSaveItem,
