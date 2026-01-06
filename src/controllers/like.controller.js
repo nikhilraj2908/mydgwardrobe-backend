@@ -73,3 +73,25 @@ exports.getLikeCount = async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 };
+
+
+
+exports.getMyLikeStatus = async (req, res) => {
+  try {
+    const userId = req.user.id; // from auth middleware
+    const { postId, postType } = req.params;
+
+    const like = await Like.findOne({
+      user: userId,
+      postId,
+      postType,
+    });
+
+    res.json({
+      liked: !!like,
+    });
+  } catch (err) {
+    console.error("getMyLikeStatus error:", err);
+    res.status(500).json({ message: "Failed to fetch like status" });
+  }
+};
