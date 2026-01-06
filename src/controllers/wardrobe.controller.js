@@ -51,7 +51,7 @@ const Wardrobe = require("../models/wardrobe.model");
 /* ======================================================
    ADD ITEM TO WARDROBE (AUTO-CREATE WARDROBE IF NEEDED)
 ====================================================== */
-exports.addWardrobeItem = async (req, res) => {
+const addWardrobeItem = async (req, res) => {
   try {
     console.log("REQ.FILE =>", req.file);
     console.log("REQ.BODY =>", req.body);
