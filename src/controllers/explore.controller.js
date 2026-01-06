@@ -1,16 +1,13 @@
 const WardrobeItem = require("../models/wardrobeItem.model");
+const Wardrobe = require("../models/wardrobe.model");
 
 /* ======================================================
    EXPLORE – GET ALL PUBLIC ITEMS
-   Supports:
-   - Category filter
-   - Search (category, brand, wardrobe)
 ====================================================== */
 exports.getExploreItems = async (req, res) => {
   try {
     const { category, search } = req.query;
 
-    // Base filter: only public items
     const filter = {
       visibility: "public",
     };
@@ -20,21 +17,32 @@ exports.getExploreItems = async (req, res) => {
       filter.category = category;
     }
 
-    // Search filter
+    let itemsQuery = WardrobeItem.find(filter)
+      .populate("wardrobe", "name") // ✅ REQUIRED
+      .sort({ createdAt: -1 })
+      .select("imageUrl category brand price wardrobe createdAt");
+
+    // 🔍 SEARCH FIX (IMPORTANT)
     if (search) {
-      filter.$or = [
-        { category: { $regex: search, $options: "i" } },
-        { brand: { $regex: search, $options: "i" } },
-        { wardrobe: { $regex: search, $options: "i" } },
-      ];
+      const wardrobes = await Wardrobe.find({
+        name: { $regex: search, $options: "i" },
+      }).select("_id");
+
+      itemsQuery = WardrobeItem.find({
+        visibility: "public",
+        ...(category && category !== "All" ? { category } : {}),
+        $or: [
+          { category: { $regex: search, $options: "i" } },
+          { brand: { $regex: search, $options: "i" } },
+          { wardrobe: { $in: wardrobes.map(w => w._id) } }, // ✅ CORRECT
+        ],
+      })
+        .populate("wardrobe", "name")
+        .sort({ createdAt: -1 })
+        .select("imageUrl category brand price wardrobe createdAt");
     }
 
-    const items = await WardrobeItem.find(filter)
-      .sort({ createdAt: -1 })
-      .select(
-        "imageUrl category brand price wardrobe createdAt"
-      )
-      .lean();
+    const items = await itemsQuery.lean();
 
     res.json(items);
   } catch (error) {
