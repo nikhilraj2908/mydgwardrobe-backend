@@ -1,9 +1,14 @@
 const express = require("express");
 const router = express.Router();
+
+const authOptional = require("../middlewares/optionalAuth.middleware");
+// const optionalAuth = require("../middlewares/optionalAuth.middleware");
+
 const {
   getUserCollections,
-//   getUserWardrobesWithPublicStats,
-  getUserWardrobesWithStats
+//   getUserWardrobesWithPublicStats, 
+  getUserWardrobesWithStats,
+  getCollectionLikeCount
 } = require("../controllers/collection.controller");
 
 // GET /api/collections/:userId
@@ -12,6 +17,12 @@ const {
 router.get(
   "/:userId/wardrobes",// or auth middleware if needed
   getUserWardrobesWithStats
+);
+
+router.get(
+  "/:userId/likes",
+  authOptional,
+  getCollectionLikeCount
 );
 
 module.exports = router;

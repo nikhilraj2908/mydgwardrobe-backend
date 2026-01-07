@@ -2,7 +2,8 @@ const mongoose = require("mongoose");
 const Wardrobe = require("../models/wardrobe.model");
 const WardrobeItem = require("../models/wardrobeItem.model");
 const User = require("../models/user.model");
-exports.getUserWardrobesWithStats = async (req, res) => {
+const Like = require("../models/like.model");
+const getUserWardrobesWithStats = async (req, res) => {
   try {
     const { userId } = req.params;
 
@@ -61,4 +62,57 @@ exports.getUserWardrobesWithStats = async (req, res) => {
     console.error("COLLECTION CONTROLLER ERROR:", error);
     res.status(500).json({ message: error.message });
   }
+};
+
+
+
+const getCollectionLikeCount = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const viewerId = req.user?.id;
+
+    const isOwner =
+      viewerId && viewerId.toString() === userId.toString();
+
+    // 1️⃣ Get all wardrobes of the user
+    const wardrobes = await Wardrobe.find({ user: userId }).select("_id");
+    const wardrobeIds = wardrobes.map(w => w._id);
+
+    if (wardrobeIds.length === 0) {
+      return res.json({ totalLikes: 0 });
+    }
+
+    // 2️⃣ Get item IDs inside these wardrobes
+    const itemFilter = {
+      wardrobe: { $in: wardrobeIds },
+    };
+
+    if (!isOwner) {
+      itemFilter.visibility = "public";
+    }
+
+    const items = await WardrobeItem.find(itemFilter).select("_id");
+    const itemIds = items.map(i => i._id);
+
+    if (itemIds.length === 0) {
+      return res.json({ totalLikes: 0 });
+    }
+
+    // 3️⃣ Count likes for these items
+    const totalLikes = await Like.countDocuments({
+      postType: "item",
+      postId: { $in: itemIds },
+    });
+
+    res.json({ totalLikes });
+  } catch (error) {
+    console.error("COLLECTION LIKE ERROR:", error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
+
+module.exports={
+  getUserWardrobesWithStats,
+  getCollectionLikeCount
 };
