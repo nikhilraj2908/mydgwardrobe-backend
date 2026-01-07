@@ -3,6 +3,7 @@ const Wardrobe = require("../models/wardrobe.model");
 const WardrobeItem = require("../models/wardrobeItem.model");
 const User = require("../models/user.model");
 const Like = require("../models/like.model");
+const CollectionView = require("../models/collectionView.model");
 const getUserWardrobesWithStats = async (req, res) => {
   try {
     const { userId } = req.params;
@@ -111,8 +112,53 @@ const getCollectionLikeCount = async (req, res) => {
   }
 };
 
+const trackCollectionView = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const viewerId = req.user?.id;
 
+    // ❌ no login → no view
+    if (!viewerId) {
+      return res.json({ counted: false });
+    }
+
+    // ❌ owner viewing own collection
+    if (viewerId.toString() === userId.toString()) {
+      return res.json({ counted: false });
+    }
+
+    await CollectionView.findOneAndUpdate(
+      { viewer: viewerId, owner: userId },
+      { $setOnInsert: { viewer: viewerId, owner: userId } },
+      { upsert: true }
+    );
+
+    const totalViews = await CollectionView.countDocuments({
+      owner: userId,
+    });
+
+    res.json({ totalViews });
+  } catch (error) {
+    console.error("COLLECTION VIEW ERROR:", error);
+    res.status(500).json({ message: error.message });
+  }
+};
+const getCollectionViewCount = async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    const totalViews = await CollectionView.countDocuments({
+      owner: userId,
+    });
+
+    res.json({ totalViews });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
 module.exports={
   getUserWardrobesWithStats,
-  getCollectionLikeCount
+  getCollectionLikeCount,
+  trackCollectionView,
+  getCollectionViewCount
 };

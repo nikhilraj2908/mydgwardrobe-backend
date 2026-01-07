@@ -8,7 +8,9 @@ const {
   getUserCollections,
 //   getUserWardrobesWithPublicStats, 
   getUserWardrobesWithStats,
-  getCollectionLikeCount
+  getCollectionLikeCount,
+    trackCollectionView,
+  getCollectionViewCount,
 } = require("../controllers/collection.controller");
 
 // GET /api/collections/:userId
@@ -24,5 +26,7 @@ router.get(
   authOptional,
   getCollectionLikeCount
 );
+router.post("/:userId/view", authOptional, trackCollectionView);
+router.get("/:userId/view", getCollectionViewCount);
 
 module.exports = router;
