@@ -3,7 +3,7 @@ const router = express.Router();
 
 const upload = require("../middlewares/upload.middleware");
 const auth = require("../middlewares/auth.middleware");
-
+const optionalAuth = require("../middlewares/optionalAuth.middleware");
 const {
   addWardrobeItem,
   getMyWardrobeItems,
@@ -51,7 +51,7 @@ router.get("/explore", getExploreItems);
 router.get("/item/:id",getSingleWardrobeItem);
 router.get(
   "/:wardrobeId/items",
-  auth,
+  optionalAuth,
   getWardrobeItemsByWardrobe
 );
 

@@ -324,12 +324,27 @@ const getSingleWardrobeItem = async (req, res) => {
 const getWardrobeItemsByWardrobe = async (req, res) => {
   try {
     const { wardrobeId } = req.params;
-    const userId = req.user._id;
+    const userId = req.user?._id; // optional auth
 
-    const items = await WardrobeItem.find({
-      user: userId,
-      wardrobe: wardrobeId, // ✅ ObjectId match
-    }).sort({ createdAt: -1 });
+    // 1️⃣ Find wardrobe
+    const wardrobe = await Wardrobe.findById(wardrobeId);
+    if (!wardrobe) {
+      return res.status(404).json({ message: "Wardrobe not found" });
+    }
+
+    // 2️⃣ Check ownership
+    const isOwner =
+      userId && wardrobe.user.toString() === userId.toString();
+
+    // 3️⃣ Build filter
+    const filter = {
+      wardrobe: wardrobeId,
+      ...(isOwner ? {} : { visibility: "public" }),
+    };
+
+    // 4️⃣ Fetch items
+    const items = await WardrobeItem.find(filter)
+      .sort({ createdAt: -1 });
 
     res.json(items);
   } catch (err) {
@@ -337,6 +352,7 @@ const getWardrobeItemsByWardrobe = async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 };
+
 
 module.exports = {
   addWardrobeItem,
