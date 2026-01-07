@@ -308,6 +308,7 @@ const getSingleWardrobeItem = async (req, res) => {
     const { id } = req.params;
     const item = await WardrobeItem.findById(id)
       .populate("user", "username photo")
+      .populate("wardrobe", "name") 
       .lean();
     if (!item) {
       return res.status(404).json({ message: "Item not found" });
