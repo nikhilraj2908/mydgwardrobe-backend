@@ -7,6 +7,7 @@ const upload = require("../middlewares/upload.middleware");
 const {
   getProfile,
   updateProfile,
+  getUserById
 } = require("../controllers/user.controller");
 
 /* ======================================================
@@ -23,5 +24,7 @@ router.put(
   upload.single("photo"), // 👈 profile image field name
   updateProfile
 );
+
+router.get("/:userId", getUserById);
 
 module.exports = router;
