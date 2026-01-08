@@ -6,7 +6,9 @@ const {
   toggleFollow,
   isFollowing,
   getFollowCounts,
-  getMyFollowing
+  getMyFollowing,
+  getFollowers,
+  getFollowing
 } = require("../controllers/follow.controller");
 
 // Follow / Unfollow
@@ -17,6 +19,9 @@ router.get("/status/:userId", auth, isFollowing);
 
 // Get followers & following count
 router.get("/counts/:userId", getFollowCounts);
+
+router.get("/followers/:userId", auth, getFollowers);
+router.get("/following/:userId", auth, getFollowing);
 
 
 router.get("/my", auth, getMyFollowing);

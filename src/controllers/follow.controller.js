@@ -96,3 +96,22 @@ exports.getMyFollowing = async (req, res) => {
     res.status(500).json({ message: "Failed to fetch following list" });
   }
 };
+
+exports.getFollowers = async (req, res) => {
+  const { userId } = req.params;
+
+  const followers = await Follow.find({ following: userId })
+    .populate("follower", "username photo bio");
+
+  res.json(followers.map(f => f.follower));
+};
+
+
+exports.getFollowing = async (req, res) => {
+  const { userId } = req.params;
+
+  const following = await Follow.find({ follower: userId })
+    .populate("following", "username photo bio");
+
+  res.json(following.map(f => f.following));
+};
