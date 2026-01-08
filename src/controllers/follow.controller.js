@@ -77,3 +77,22 @@ exports.getFollowCounts = async (req, res) => {
     res.status(500).json({ message: "Failed to fetch follow counts" });
   }
 };
+
+
+
+// GET MY FOLLOWING LIST
+exports.getMyFollowing = async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    const follows = await Follow.find({ follower: userId })
+      .select("following");
+
+    const followingIds = follows.map(f => String(f.following));
+
+    res.json({ following: followingIds });
+  } catch (err) {
+    console.error("getMyFollowing error:", err);
+    res.status(500).json({ message: "Failed to fetch following list" });
+  }
+};
