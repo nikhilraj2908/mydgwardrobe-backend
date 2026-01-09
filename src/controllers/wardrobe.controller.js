@@ -353,6 +353,30 @@ const getWardrobeItemsByWardrobe = async (req, res) => {
   }
 };
 
+const getPublicUserItems = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const viewerId = req.user?._id;
+
+    const isOwner =
+      viewerId && viewerId.toString() === userId.toString();
+
+    const filter = {
+      user: userId,
+      ...(isOwner ? {} : { visibility: "public" }),
+    };
+
+    const items = await WardrobeItem.find(filter)
+      .populate("wardrobe", "name color")
+      .sort({ createdAt: -1 });
+
+    res.json({ items });
+  } catch (err) {
+    console.error("GET PUBLIC USER ITEMS ERROR:", err);
+    res.status(500).json({ message: err.message });
+  }
+};
+
 
 module.exports = {
   addWardrobeItem,
@@ -363,4 +387,5 @@ module.exports = {
   deleteWardrobeItem,
   getSingleWardrobeItem,
   getWardrobeItemsByWardrobe,
+  getPublicUserItems
 };
