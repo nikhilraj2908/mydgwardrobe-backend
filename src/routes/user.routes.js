@@ -7,7 +7,8 @@ const upload = require("../middlewares/upload.middleware");
 const {
   getProfile,
   updateProfile,
-  getUserById
+  getUserById,
+  searchUsers
 } = require("../controllers/user.controller");
 
 /* ======================================================
@@ -25,6 +26,7 @@ router.put(
   updateProfile
 );
 
-router.get("/:userId", getUserById);
+router.get("/search", searchUsers);
 
+router.get("/:userId", getUserById);
 module.exports = router;

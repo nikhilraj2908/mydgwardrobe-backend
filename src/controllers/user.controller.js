@@ -72,3 +72,30 @@ exports.getUserById = async (req, res) => {
     res.status(400).json({ message: "Invalid user id" });
   }
 };
+
+/* =====================================================
+   SEARCH USERS (PUBLIC)
+   GET /api/user/search?q=
+===================================================== */
+exports.searchUsers = async (req, res) => {
+  try {
+    const { q } = req.query;
+
+    // ⛔ Ignore very small searches
+    if (!q || q.trim().length < 2) {
+      return res.json({ users: [] });
+    }
+
+    const users = await User.find({
+      username: { $regex: q, $options: "i" }, // case-insensitive
+    })
+      .select("_id username photo bio")
+      .limit(10)
+      .lean();
+
+    res.json({ users });
+  } catch (err) {
+    console.error("USER SEARCH ERROR:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
