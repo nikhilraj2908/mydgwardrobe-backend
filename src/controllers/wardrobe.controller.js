@@ -56,9 +56,11 @@ const addWardrobeItem = async (req, res) => {
     if (!req.files || req.files.length === 0) {
       return res.status(400).json({ message: "At least one image is required" });
     }
-    const imagePaths = req.files.map(file => file.path);
+    const imagePaths = req.files.map(file =>
+      file.path.replace(/\\/g, "/") // ✅ FIX WINDOWS PATH
+    );
 
-    const { category, wardrobe, brand, visibility, description  } = req.body;
+    const { category, wardrobe, brand, visibility, description } = req.body;
     const price = Number(req.body.price || 0);
 
     if (!category || !wardrobe) {
@@ -89,7 +91,7 @@ const addWardrobeItem = async (req, res) => {
     /* ===============================
        2️⃣ CREATE WARDROBE ITEM
        =============================== */
-      const item = await WardrobeItem.create({
+    const item = await WardrobeItem.create({
       user: req.user._id,
       wardrobe: wardrobeDoc._id,
       images: imagePaths,
