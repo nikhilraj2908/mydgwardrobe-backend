@@ -28,18 +28,29 @@ exports.getPublicFeed = async (req, res) => {
       {
         $project: {
           type: { $literal: "item" },
-          imageUrl: 1,
+
+          // ✅ SEND BOTH
+          images: 1,
+          imageUrl: {
+            $cond: [
+              { $gt: [{ $size: { $ifNull: ["$images", []] } }, 0] },
+              { $arrayElemAt: ["$images", 0] },
+              "$imageUrl"
+            ]
+          },
+
           price: 1,
           createdAt: 1,
           likes: { $ifNull: ["$likes", 0] },
           comments: { $ifNull: ["$comments", 0] },
+
           user: {
             _id: "$user._id",
             username: "$user.username",
             photo: "$user.photo",
           },
         },
-      },
+      }
     ]);
 
     /* ===============================
