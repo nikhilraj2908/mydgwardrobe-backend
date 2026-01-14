@@ -53,11 +53,12 @@ const Wardrobe = require("../models/wardrobe.model");
 ====================================================== */
 const addWardrobeItem = async (req, res) => {
   try {
-    if (!req.file) {
-      return res.status(400).json({ message: "Image file is required" });
+    if (!req.files || req.files.length === 0) {
+      return res.status(400).json({ message: "At least one image is required" });
     }
+    const imagePaths = req.files.map(file => file.path);
 
-    const { category, wardrobe, brand, visibility } = req.body;
+    const { category, wardrobe, brand, visibility, description  } = req.body;
     const price = Number(req.body.price || 0);
 
     if (!category || !wardrobe) {
@@ -88,14 +89,14 @@ const addWardrobeItem = async (req, res) => {
     /* ===============================
        2️⃣ CREATE WARDROBE ITEM
        =============================== */
-
-    const item = await WardrobeItem.create({
+      const item = await WardrobeItem.create({
       user: req.user._id,
-      wardrobe: wardrobeDoc._id, // ✅ ObjectId
-      imageUrl: req.file.path,
+      wardrobe: wardrobeDoc._id,
+      images: imagePaths,
       category,
       price,
       brand,
+      description: description || "",
       visibility: visibility || "private",
     });
 
@@ -308,7 +309,7 @@ const getSingleWardrobeItem = async (req, res) => {
     const { id } = req.params;
     const item = await WardrobeItem.findById(id)
       .populate("user", "username photo")
-      .populate("wardrobe", "name") 
+      .populate("wardrobe", "name")
       .lean();
     if (!item) {
       return res.status(404).json({ message: "Item not found" });

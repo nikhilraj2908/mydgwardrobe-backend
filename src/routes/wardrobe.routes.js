@@ -20,7 +20,7 @@ const { getExploreItems } = require("../controllers/explore.controller");
 router.post(
   "/add",
   auth,
-  upload.single("image"),
+  upload.array("images", 5),
   addWardrobeItem
 );
 
