@@ -3,6 +3,7 @@ const router = express.Router();
 
 const authOptional = require("../middlewares/optionalAuth.middleware");
 // const optionalAuth = require("../middlewares/optionalAuth.middleware");
+const auth = require("../middlewares/auth.middleware");
 
 const {
   getUserCollections,
