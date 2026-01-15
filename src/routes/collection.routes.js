@@ -18,6 +18,7 @@ const {
 // router.get("/:userId/wardrobes", getUserWardrobesWithPublicStats);
 router.get(
   "/:userId/wardrobes",// or auth middleware if needed
+  auth,   
   getUserWardrobesWithStats
 );
 
