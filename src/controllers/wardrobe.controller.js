@@ -1,5 +1,9 @@
 const WardrobeItem = require("../models/wardrobeItem.model");
 const Wardrobe = require("../models/wardrobe.model");
+
+const { deleteFromS3 } = require("../utils/s3");
+
+
 /* ======================================================
    ADD ITEM TO WARDROBE
 ====================================================== */
@@ -582,6 +586,68 @@ const deleteMultipleWardrobeItems = async (req, res) => {
   }
 };
 
+
+
+const updateWardrobeItem = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const { itemId } = req.params;
+
+    const {
+      category,
+      brand,
+      description,
+      visibility,
+      price,
+    } = req.body;
+
+    const item = await WardrobeItem.findById(itemId);
+
+    if (!item) {
+      return res.status(404).json({ message: "Item not found" });
+    }
+
+    if (item.user.toString() !== userId.toString()) {
+      return res.status(403).json({ message: "Not authorized" });
+    }
+
+    /* 🔁 IMAGE REPLACEMENT (OPTIONAL) */
+    if (req.files && req.files.length > 0) {
+      // Try deleting old images (safe no-op if AWS not configured)
+      if (Array.isArray(item.images)) {
+        await Promise.all(
+          item.images.map(async (img) => {
+            try {
+              await deleteFromS3(img);
+            } catch (_) {}
+          })
+        );
+      }
+
+      item.images = req.files.map(file =>
+        file.path.replace(/\\/g, "/")
+      );
+    }
+
+    /* 📝 FIELD UPDATES */
+    if (category !== undefined) item.category = category;
+    if (brand !== undefined) item.brand = brand;
+    if (description !== undefined) item.description = description;
+    if (visibility !== undefined) item.visibility = visibility;
+    if (price !== undefined) item.price = Number(price);
+
+    await item.save();
+
+    res.json({
+      message: "Item updated successfully",
+      item,
+    });
+  } catch (err) {
+    console.error("UPDATE ITEM ERROR:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
 module.exports = {
   addWardrobeItem,
   getMyWardrobeItems,
@@ -595,5 +661,6 @@ module.exports = {
    deleteWardrobe,
   deleteMultipleWardrobes,
   updateWardrobe,
-  deleteMultipleWardrobeItems
+  deleteMultipleWardrobeItems,
+  updateWardrobeItem
 };
