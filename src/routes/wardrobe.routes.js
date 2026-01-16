@@ -4,6 +4,7 @@ const router = express.Router();
 const upload = require("../middlewares/upload.middleware");
 const auth = require("../middlewares/auth.middleware");
 const optionalAuth = require("../middlewares/optionalAuth.middleware");
+
 const {
   addWardrobeItem,
   getMyWardrobeItems,
@@ -13,10 +14,16 @@ const {
   deleteWardrobeItem,
   getSingleWardrobeItem,
   getWardrobeItemsByWardrobe,
-  getPublicUserItems
+  getPublicUserItems,
+  deleteWardrobe,
+  deleteMultipleWardrobes,
 } = require("../controllers/wardrobe.controller");
+
 const { getExploreItems } = require("../controllers/explore.controller");
-/* Add Item */
+
+/* ===============================
+   ADD ITEM
+================================ */
 router.post(
   "/add",
   auth,
@@ -24,42 +31,75 @@ router.post(
   addWardrobeItem
 );
 
-
-/* Get My Items */
+/* ===============================
+   GET MY ITEMS
+================================ */
 router.get("/my", auth, getMyWardrobeItems);
 
-/* Create new wardrobe (Mummy's, Work Wear, etc.) */
-router.post(
-  "/create",
-  auth,
-  createWardrobe
-);
+/* ===============================
+   CREATE WARDROBE
+================================ */
+router.post("/create", auth, createWardrobe);
 
-/* Get my wardrobes */
-router.get(
-  "/list",
-  auth,
-  getMyWardrobes
-);
+/* ===============================
+   LIST MY WARDROBES
+================================ */
+router.get("/list", auth, getMyWardrobes);
 
-/* Get public items of a wardrobe (for other users) */
-router.get(
-  "/public/:wardrobeId",
-  getWardrobePublicItems
-);
+/* ===============================
+   PUBLIC WARDROBE ITEMS
+================================ */
+router.get("/public/:wardrobeId", getWardrobePublicItems);
+
+/* ===============================
+   DELETE ITEM
+================================ */
 router.delete("/item/:itemId", auth, deleteWardrobeItem);
+
+/* ===============================
+   SINGLE ITEM
+================================ */
+router.get("/item/:id", getSingleWardrobeItem);
+
+/* ===============================
+   EXPLORE
+================================ */
 router.get("/explore", getExploreItems);
-router.get("/item/:id",getSingleWardrobeItem);
+
+/* ===============================
+   WARDROBE ITEMS (OWNER / PUBLIC)
+================================ */
 router.get(
   "/:wardrobeId/items",
   optionalAuth,
   getWardrobeItemsByWardrobe
 );
 
+/* ===============================
+   USER PUBLIC ITEMS
+================================ */
 router.get(
   "/user/:userId/items",
   optionalAuth,
   getPublicUserItems
+);
+
+/* ===============================
+   ✅ BULK DELETE (MUST BE ABOVE :wardrobeId)
+================================ */
+router.delete(
+  "/bulk-delete",
+  auth,
+  deleteMultipleWardrobes
+);
+
+/* ===============================
+   ✅ DELETE SINGLE WARDROBE (LAST)
+================================ */
+router.delete(
+  "/:wardrobeId",
+  auth,
+  deleteWardrobe
 );
 
 module.exports = router;

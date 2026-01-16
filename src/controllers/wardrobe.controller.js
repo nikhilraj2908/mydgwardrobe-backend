@@ -379,6 +379,90 @@ const getPublicUserItems = async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 };
+/* ======================================================
+   DELETE SINGLE WARDROBE (WITH ITEMS)
+====================================================== */
+const deleteWardrobe = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const { wardrobeId } = req.params;
+
+    // 1️⃣ Find wardrobe
+    const wardrobe = await Wardrobe.findById(wardrobeId);
+
+    if (!wardrobe) {
+      return res.status(404).json({ message: "Wardrobe not found" });
+    }
+
+    // 2️⃣ Ownership check
+    if (wardrobe.user.toString() !== userId.toString()) {
+      return res.status(403).json({ message: "Not authorized to delete this wardrobe" });
+    }
+
+    // 3️⃣ Delete all items inside wardrobe
+    await WardrobeItem.deleteMany({ wardrobe: wardrobeId });
+
+    // 4️⃣ Delete wardrobe itself
+    await wardrobe.deleteOne();
+
+    res.json({
+      message: "Wardrobe and all associated items deleted successfully",
+    });
+  } catch (err) {
+    console.error("DELETE WARDROBE ERROR:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+
+/* ======================================================
+   DELETE MULTIPLE WARDROBES (BULK)
+====================================================== */
+const deleteMultipleWardrobes = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const { wardrobeIds } = req.body;
+
+    if (!Array.isArray(wardrobeIds) || wardrobeIds.length === 0) {
+      return res.status(400).json({
+        message: "wardrobeIds must be a non-empty array",
+      });
+    }
+
+    // 1️⃣ Find wardrobes owned by user
+    const wardrobes = await Wardrobe.find({
+      _id: { $in: wardrobeIds },
+      user: userId,
+    });
+
+    if (wardrobes.length === 0) {
+      return res.status(404).json({
+        message: "No wardrobes found to delete",
+      });
+    }
+
+    const validWardrobeIds = wardrobes.map(w => w._id);
+
+    // 2️⃣ Delete all items inside these wardrobes
+    await WardrobeItem.deleteMany({
+      wardrobe: { $in: validWardrobeIds },
+    });
+
+    // 3️⃣ Delete wardrobes
+    await Wardrobe.deleteMany({
+      _id: { $in: validWardrobeIds },
+      user: userId,
+    });
+
+    res.json({
+      message: "Selected wardrobes and their items deleted successfully",
+      deletedCount: validWardrobeIds.length,
+    });
+  } catch (err) {
+    console.error("BULK DELETE WARDROBES ERROR:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
 
 
 module.exports = {
@@ -390,5 +474,7 @@ module.exports = {
   deleteWardrobeItem,
   getSingleWardrobeItem,
   getWardrobeItemsByWardrobe,
-  getPublicUserItems
+  getPublicUserItems,
+   deleteWardrobe,
+  deleteMultipleWardrobes,
 };
