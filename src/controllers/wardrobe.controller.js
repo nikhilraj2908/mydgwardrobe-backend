@@ -611,23 +611,40 @@ const updateWardrobeItem = async (req, res) => {
       return res.status(403).json({ message: "Not authorized" });
     }
 
-    /* 🔁 IMAGE REPLACEMENT (OPTIONAL) */
-    if (req.files && req.files.length > 0) {
-      // Try deleting old images (safe no-op if AWS not configured)
-      if (Array.isArray(item.images)) {
-        await Promise.all(
-          item.images.map(async (img) => {
-            try {
-              await deleteFromS3(img);
-            } catch (_) {}
-          })
-        );
-      }
+    /* 🔁 IMAGE MERGE (CORRECT LOGIC) */
+    let existingImages = [];
 
-      item.images = req.files.map(file =>
-        file.path.replace(/\\/g, "/")
+    if (req.body.existingImages) {
+      try {
+        existingImages = JSON.parse(req.body.existingImages);
+      } catch (e) {
+        return res.status(400).json({ message: "Invalid existingImages format" });
+      }
+    }
+
+    // New uploaded images
+    const newImages = req.files
+      ? req.files.map(file => file.path.replace(/\\/g, "/"))
+      : [];
+
+    // Delete images that user REMOVED
+    if (Array.isArray(item.images)) {
+      const removedImages = item.images.filter(
+        img => !existingImages.includes(img)
+      );
+
+      await Promise.all(
+        removedImages.map(async img => {
+          try {
+            await deleteFromS3(img);
+          } catch (_) { }
+        })
       );
     }
+
+    // Final merged images
+    item.images = [...existingImages, ...newImages];
+
 
     /* 📝 FIELD UPDATES */
     if (category !== undefined) item.category = category;
@@ -658,7 +675,7 @@ module.exports = {
   getSingleWardrobeItem,
   getWardrobeItemsByWardrobe,
   getPublicUserItems,
-   deleteWardrobe,
+  deleteWardrobe,
   deleteMultipleWardrobes,
   updateWardrobe,
   deleteMultipleWardrobeItems,
