@@ -17,6 +17,8 @@ const {
   getPublicUserItems,
   deleteWardrobe,
   deleteMultipleWardrobes,
+  updateWardrobe,
+  deleteMultipleWardrobeItems
 } = require("../controllers/wardrobe.controller");
 
 const { getExploreItems } = require("../controllers/explore.controller");
@@ -93,6 +95,13 @@ router.delete(
   deleteMultipleWardrobes
 );
 
+
+router.put(
+  "/:wardrobeId",
+  auth,
+  updateWardrobe
+);
+
 /* ===============================
    ✅ DELETE SINGLE WARDROBE (LAST)
 ================================ */
@@ -100,6 +109,14 @@ router.delete(
   "/:wardrobeId",
   auth,
   deleteWardrobe
+);
+/* ===============================
+   BULK DELETE ITEMS
+================================ */
+router.delete(
+  "/items/bulk-delete",
+  auth,
+  deleteMultipleWardrobeItems
 );
 
 module.exports = router;

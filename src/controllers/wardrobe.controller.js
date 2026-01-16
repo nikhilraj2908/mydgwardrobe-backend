@@ -465,6 +465,123 @@ const deleteMultipleWardrobes = async (req, res) => {
 };
 
 
+const updateWardrobe = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const { wardrobeId } = req.params;
+    const { name, color } = req.body;
+
+    if (!name && !color) {
+      return res.status(400).json({
+        message: "Nothing to update",
+      });
+    }
+
+    // 1️⃣ Find wardrobe
+    const wardrobe = await Wardrobe.findById(wardrobeId);
+
+    if (!wardrobe) {
+      return res.status(404).json({ message: "Wardrobe not found" });
+    }
+
+    // 2️⃣ Ownership check
+    if (wardrobe.user.toString() !== userId.toString()) {
+      return res.status(403).json({ message: "Not authorized" });
+    }
+
+    // 3️⃣ Prevent duplicate wardrobe names (same user)
+    if (name) {
+      const exists = await Wardrobe.findOne({
+        user: userId,
+        name: name.trim(),
+        _id: { $ne: wardrobeId },
+      });
+
+      if (exists) {
+        return res.status(409).json({
+          message: "Wardrobe with this name already exists",
+        });
+      }
+
+      wardrobe.name = name.trim();
+    }
+
+    // 4️⃣ Optional color update
+    if (color) {
+      wardrobe.color = color;
+    }
+
+    await wardrobe.save();
+
+    res.json({
+      message: "Wardrobe updated successfully",
+      wardrobe,
+    });
+  } catch (err) {
+    console.error("UPDATE WARDROBE ERROR:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+/* ======================================================
+   DELETE MULTIPLE WARDROBE ITEMS (BULK)
+====================================================== */
+const deleteMultipleWardrobeItems = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const { itemIds } = req.body;
+
+    if (!Array.isArray(itemIds) || itemIds.length === 0) {
+      return res.status(400).json({
+        message: "itemIds must be a non-empty array",
+      });
+    }
+
+    // 1️⃣ Fetch items owned by user
+    const items = await WardrobeItem.find({
+      _id: { $in: itemIds },
+      user: userId,
+    }).select("wardrobe");
+
+    if (items.length === 0) {
+      return res.status(404).json({
+        message: "No items found to delete",
+      });
+    }
+
+    // 2️⃣ Count deletions per wardrobe
+    const wardrobeCountMap = {};
+
+    items.forEach(item => {
+      const wid = item.wardrobe.toString();
+      wardrobeCountMap[wid] = (wardrobeCountMap[wid] || 0) + 1;
+    });
+
+    // 3️⃣ Delete items
+    await WardrobeItem.deleteMany({
+      _id: { $in: items.map(i => i._id) },
+      user: userId,
+    });
+
+    // 4️⃣ Update itemCount per wardrobe
+    const updatePromises = Object.entries(wardrobeCountMap).map(
+      ([wardrobeId, count]) =>
+        Wardrobe.findByIdAndUpdate(wardrobeId, {
+          $inc: { itemCount: -count },
+        })
+    );
+
+    await Promise.all(updatePromises);
+
+    res.json({
+      message: "Selected wardrobe items deleted successfully",
+      deletedCount: items.length,
+    });
+  } catch (err) {
+    console.error("BULK DELETE ITEMS ERROR:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
 module.exports = {
   addWardrobeItem,
   getMyWardrobeItems,
@@ -477,4 +594,6 @@ module.exports = {
   getPublicUserItems,
    deleteWardrobe,
   deleteMultipleWardrobes,
+  updateWardrobe,
+  deleteMultipleWardrobeItems
 };
