@@ -704,6 +704,73 @@ const moveWardrobeItem = async (req, res) => {
   }
 };
 
+
+const moveWardrobeItemsBulk = async (req, res) => {
+  try {
+    const { itemIds, targetWardrobeId } = req.body;
+    const userId = req.user.id;
+
+    // 1️⃣ Validate input
+    if (!Array.isArray(itemIds) || itemIds.length === 0) {
+      return res.status(400).json({
+        message: "itemIds must be a non-empty array"
+      });
+    }
+
+    if (!targetWardrobeId) {
+      return res.status(400).json({
+        message: "targetWardrobeId is required"
+      });
+    }
+
+    // 2️⃣ Check target wardrobe ownership
+    const targetWardrobe = await Wardrobe.findOne({
+      _id: targetWardrobeId,
+      user: userId
+    });
+
+    if (!targetWardrobe) {
+      return res.status(404).json({
+        message: "Target wardrobe not found"
+      });
+    }
+
+    // 3️⃣ Verify items belong to user
+    const itemsCount = await WardrobeItem.countDocuments({
+      _id: { $in: itemIds },
+      user: userId
+    });
+
+    if (itemsCount !== itemIds.length) {
+      return res.status(403).json({
+        message: "One or more items are invalid or not owned by user"
+      });
+    }
+
+    // 4️⃣ Bulk update
+    const result = await WardrobeItem.updateMany(
+      {
+        _id: { $in: itemIds },
+        user: userId
+      },
+      {
+        $set: { wardrobe: targetWardrobeId }
+      }
+    );
+
+    // 5️⃣ Success response
+    res.json({
+      message: "Items moved successfully",
+      movedCount: result.modifiedCount
+    });
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({
+      message: "Server error"
+    });
+  }
+};
 module.exports = {
   addWardrobeItem,
   getMyWardrobeItems,
@@ -719,5 +786,6 @@ module.exports = {
   updateWardrobe,
   deleteMultipleWardrobeItems,
   updateWardrobeItem,
-  moveWardrobeItem
+  moveWardrobeItem,
+  moveWardrobeItemsBulk
 };
