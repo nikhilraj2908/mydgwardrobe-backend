@@ -19,7 +19,8 @@ const {
   deleteMultipleWardrobes,
   updateWardrobe,
   deleteMultipleWardrobeItems,
-  updateWardrobeItem
+  updateWardrobeItem,
+  moveWardrobeItem
 } = require("../controllers/wardrobe.controller");
 
 const { getExploreItems } = require("../controllers/explore.controller");
@@ -127,6 +128,12 @@ router.delete(
   deleteMultipleWardrobeItems
 );
 
+
+router.put(
+  "/:itemId/move",
+  auth,
+  moveWardrobeItem
+);
 
 
 module.exports = router;

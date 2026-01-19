@@ -665,6 +665,45 @@ const updateWardrobeItem = async (req, res) => {
   }
 };
 
+const moveWardrobeItem = async (req, res) => {
+  try {
+    const { itemId } = req.params;
+    const { targetWardrobeId } = req.body;
+    const userId = req.user.id;
+
+    // 1. Find item
+    const item = await WardrobeItem.findOne({
+      _id: itemId,
+      user: userId
+    });
+
+    if (!item) {
+      return res.status(404).json({ message: "Item not found" });
+    }
+
+    // 2. Check target wardrobe
+    const targetWardrobe = await Wardrobe.findOne({
+      _id: targetWardrobeId,
+      user: userId
+    });
+
+    if (!targetWardrobe) {
+      return res.status(404).json({ message: "Target wardrobe not found" });
+    }
+
+    // 3. Move item
+    item.wardrobe = targetWardrobeId;
+    await item.save();
+
+    res.json({
+      message: "Item moved successfully",
+      item
+    });
+  } catch (err) {
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
 module.exports = {
   addWardrobeItem,
   getMyWardrobeItems,
@@ -679,5 +718,6 @@ module.exports = {
   deleteMultipleWardrobes,
   updateWardrobe,
   deleteMultipleWardrobeItems,
-  updateWardrobeItem
+  updateWardrobeItem,
+  moveWardrobeItem
 };
