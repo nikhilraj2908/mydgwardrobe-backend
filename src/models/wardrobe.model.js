@@ -24,6 +24,12 @@ const wardrobeSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
+      // ✅ ADD THIS
+    isSystem: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
 
     isDefault: {
       type: Boolean,

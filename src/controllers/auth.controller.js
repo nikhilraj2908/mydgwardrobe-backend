@@ -5,7 +5,7 @@ const PasswordReset = require("../models/passwordResetToken.model");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
-
+const Wardrobe = require("../models/wardrobe.model");
 const { generateOTP } = require("../services/otp.service");
 const { sendOTP, sendResetMail } = require("../services/mail.service");
 

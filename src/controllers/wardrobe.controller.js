@@ -109,6 +109,7 @@ const addWardrobeItem = async (req, res) => {
     /* ===============================
        3️⃣ UPDATE ITEM COUNT
        =============================== */
+       
 
     await Wardrobe.findByIdAndUpdate(
       wardrobeDoc._id,
@@ -687,14 +688,25 @@ const moveWardrobeItem = async (req, res) => {
       user: userId
     });
 
+    const sourceWardrobeId = item.wardrobe.toString();
+
     if (!targetWardrobe) {
       return res.status(404).json({ message: "Target wardrobe not found" });
     }
 
-    // 3. Move item
+    // Prevent moving into same wardrobe
+    if (sourceWardrobeId === targetWardrobeId) {
+      return res.status(400).json({
+        message: "Item already belongs to this wardrobe",
+      });
+    }
+    // 3. Move item2
     item.wardrobe = targetWardrobeId;
     await item.save();
-
+    await Promise.all([
+      Wardrobe.findByIdAndUpdate(sourceWardrobeId, { $inc: { itemCount: -1 } }),
+      Wardrobe.findByIdAndUpdate(targetWardrobeId, { $inc: { itemCount: 1 } }),
+    ]);
     res.json({
       message: "Item moved successfully",
       item
@@ -708,69 +720,113 @@ const moveWardrobeItem = async (req, res) => {
 const moveWardrobeItemsBulk = async (req, res) => {
   try {
     const { itemIds, targetWardrobeId } = req.body;
-    const userId = req.user.id;
+    const userId = req.user._id; // ✅ always use _id
 
-    // 1️⃣ Validate input
+    /* ===============================
+       1️⃣ VALIDATE INPUT
+    =============================== */
     if (!Array.isArray(itemIds) || itemIds.length === 0) {
       return res.status(400).json({
-        message: "itemIds must be a non-empty array"
+        message: "itemIds must be a non-empty array",
       });
     }
 
     if (!targetWardrobeId) {
       return res.status(400).json({
-        message: "targetWardrobeId is required"
+        message: "targetWardrobeId is required",
       });
     }
 
-    // 2️⃣ Check target wardrobe ownership
+    /* ===============================
+       2️⃣ VERIFY TARGET WARDROBE
+    =============================== */
     const targetWardrobe = await Wardrobe.findOne({
       _id: targetWardrobeId,
-      user: userId
+      user: userId,
     });
 
     if (!targetWardrobe) {
       return res.status(404).json({
-        message: "Target wardrobe not found"
+        message: "Target wardrobe not found",
       });
     }
 
-    // 3️⃣ Verify items belong to user
-    const itemsCount = await WardrobeItem.countDocuments({
+    /* ===============================
+       3️⃣ FETCH ITEMS (IMPORTANT)
+    =============================== */
+    const items = await WardrobeItem.find({
       _id: { $in: itemIds },
-      user: userId
+      user: userId,
+    }).select("wardrobe");
+
+    if (items.length !== itemIds.length) {
+      return res.status(403).json({
+        message: "One or more items are invalid or not owned by user",
+      });
+    }
+
+    /* ===============================
+       4️⃣ GROUP SOURCE WARDROBES
+    =============================== */
+    const sourceWardrobeCount = {};
+
+    items.forEach((item) => {
+      const wid = item.wardrobe.toString();
+      sourceWardrobeCount[wid] =
+        (sourceWardrobeCount[wid] || 0) + 1;
     });
 
-    if (itemsCount !== itemIds.length) {
-      return res.status(403).json({
-        message: "One or more items are invalid or not owned by user"
-      });
-    }
-
-    // 4️⃣ Bulk update
+    /* ===============================
+       5️⃣ MOVE ITEMS (SKIP SAME)
+    =============================== */
     const result = await WardrobeItem.updateMany(
       {
         _id: { $in: itemIds },
-        user: userId
+        user: userId,
+        wardrobe: { $ne: targetWardrobeId }, // ✅ avoid no-op
       },
       {
-        $set: { wardrobe: targetWardrobeId }
+        $set: { wardrobe: targetWardrobeId },
       }
     );
 
-    // 5️⃣ Success response
-    res.json({
-      message: "Items moved successfully",
-      movedCount: result.modifiedCount
+    /* ===============================
+       6️⃣ UPDATE SOURCE COUNTS
+    =============================== */
+    const sourceUpdates = Object.entries(sourceWardrobeCount).map(
+      ([wardrobeId, count]) => {
+        if (wardrobeId === targetWardrobeId) return null;
+
+        return Wardrobe.findByIdAndUpdate(wardrobeId, {
+          $inc: { itemCount: -count },
+        });
+      }
+    );
+
+    await Promise.all(sourceUpdates.filter(Boolean));
+
+    /* ===============================
+       7️⃣ UPDATE TARGET COUNT
+    =============================== */
+    await Wardrobe.findByIdAndUpdate(targetWardrobeId, {
+      $inc: { itemCount: result.modifiedCount },
     });
 
+    /* ===============================
+       8️⃣ RESPONSE
+    =============================== */
+    res.json({
+      message: "Items moved successfully",
+      movedCount: result.modifiedCount,
+    });
   } catch (err) {
-    console.error(err);
+    console.error("MOVE ITEMS BULK ERROR:", err);
     res.status(500).json({
-      message: "Server error"
+      message: "Server error",
     });
   }
 };
+
 module.exports = {
   addWardrobeItem,
   getMyWardrobeItems,

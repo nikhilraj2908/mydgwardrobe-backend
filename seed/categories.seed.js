@@ -1,5 +1,4 @@
-require("dotenv").config(); // ✅ REQUIRED
-
+require("dotenv").config();
 const mongoose = require("mongoose");
 const Category = require("../src/models/category.model");
 
@@ -23,34 +22,37 @@ const ALL_CATEGORIES = {
   ],
 };
 
+const normalizeFileName = (name) =>
+  name.replace(/[\s-]/g, "");
+
 async function seedCategories() {
   try {
-    if (!process.env.MONGO_URI) {
-      throw new Error("MONGO_URI is missing in .env");
-    }
-
     await mongoose.connect(process.env.MONGO_URI);
-
-    const bulk = [];
 
     for (const type of Object.keys(ALL_CATEGORIES)) {
       for (const name of ALL_CATEGORIES[type]) {
-        bulk.push({
-          updateOne: {
-            filter: { name, type },
-            update: { $setOnInsert: { name, type, isActive: true } },
-            upsert: true,
+        const fileName = normalizeFileName(name);
+        const coverImage = `/uploads/categories/${type}/${fileName}.png`;
+
+        await Category.updateOne(
+          { name, type },
+          {
+            $set: {
+              name,
+              type,
+              coverImage,
+              isActive: true,
+            },
           },
-        });
+          { upsert: true }
+        );
       }
     }
 
-    await Category.bulkWrite(bulk);
-
-    console.log("✅ Categories seeded successfully");
+    console.log("✅ Categories updated with cover images safely");
     process.exit(0);
   } catch (err) {
-    console.error("❌ Category seeding failed:", err.message);
+    console.error("❌ Category update failed:", err.message);
     process.exit(1);
   }
 }
