@@ -78,6 +78,8 @@ router.get("/item/:id", getSingleWardrobeItem);
 ================================ */
 router.get("/explore", getExploreItems);
 
+
+
 /* ===============================
    WARDROBE ITEMS (OWNER / PUBLIC)
 ================================ */
@@ -105,7 +107,11 @@ router.delete(
   deleteMultipleWardrobes
 );
 
-
+router.delete(
+  "/:wardrobeId",
+  auth,
+  deleteWardrobe
+);
 
 
 /* ===============================
