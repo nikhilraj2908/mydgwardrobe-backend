@@ -1,21 +1,28 @@
-const Category=require("../models/category.model")
+const Category = require("../models/category.model");
+const { uploadToS3, deleteFromS3 } = require("../utils/s3");
 
-exports.getAllCategories=async (req,res)=>{
-try{
-    const categories=await Category.find({isActive:"true"})
-    .sort({name:1})
-    .lean();
+/* ============================
+   GET ACTIVE CATEGORIES
+============================ */
+exports.getAllCategories = async (req, res) => {
+  try {
+    const categories = await Category.find({ isActive: true })
+      .sort({ name: 1 })
+      .lean();
+
     res.json(categories);
-}
-catch(error){
-    console.log("server side error:",error);
-    res.status(500).json({message:"Failed to fetch categories"});
-}
-}
+  } catch (err) {
+    console.error("GET CATEGORIES ERROR:", err);
+    res.status(500).json({ message: "Failed to fetch categories" });
+  }
+};
 
+/* ============================
+   CREATE CATEGORY (ADMIN)
+============================ */
 exports.createCategory = async (req, res) => {
   try {
-    const { name, type, icon } = req.body;
+    const { name, type } = req.body;
 
     if (!name || !type) {
       return res.status(400).json({
@@ -23,13 +30,12 @@ exports.createCategory = async (req, res) => {
       });
     }
 
-    // Prevent duplicates
-    const existing = await Category.findOne({
+    const exists = await Category.findOne({
       name: name.trim(),
       type,
     });
 
-    if (existing) {
+    if (exists) {
       return res.status(409).json({
         message: "Category already exists",
       });
@@ -38,7 +44,6 @@ exports.createCategory = async (req, res) => {
     const category = await Category.create({
       name: name.trim(),
       type,
-      icon,
     });
 
     res.status(201).json({
@@ -46,31 +51,71 @@ exports.createCategory = async (req, res) => {
       category,
     });
   } catch (err) {
-    console.error("Create category error:", err);
+    console.error("CREATE CATEGORY ERROR:", err);
     res.status(500).json({ message: "Failed to create category" });
   }
 };
 
-/* =========================
-   DELETE CATEGORY (SOFT DELETE)
-========================= */
-exports.deleteCategory = async (req, res) => {
+/* ============================
+   UPLOAD ICON / COVER IMAGE
+============================ */
+exports.uploadCategoryImages = async (req, res) => {
   try {
     const { id } = req.params;
-
     const category = await Category.findById(id);
 
     if (!category) {
       return res.status(404).json({ message: "Category not found" });
     }
 
-    // Soft delete (recommended)
+    if (req.files?.icon?.[0]) {
+      if (category.icon) await deleteFromS3(category.icon);
+
+      category.icon = await uploadToS3(
+        req.files.icon[0],
+        `categories/icons/${category.type}`
+      );
+    }
+
+    if (req.files?.coverImage?.[0]) {
+      if (category.coverImage) await deleteFromS3(category.coverImage);
+
+      category.coverImage = await uploadToS3(
+        req.files.coverImage[0],
+        `categories/covers/${category.type}`
+      );
+    }
+
+    await category.save();
+
+    res.json({
+      message: "Category images updated successfully",
+      category,
+    });
+  } catch (err) {
+    console.error("UPLOAD CATEGORY IMAGE ERROR:", err);
+    res.status(500).json({ message: "Failed to upload images" });
+  }
+};
+
+/* =========================
+   DELETE CATEGORY (SOFT)
+========================= */
+exports.deleteCategory = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const category = await Category.findById(id);
+    if (!category) {
+      return res.status(404).json({ message: "Category not found" });
+    }
+
     category.isActive = false;
     await category.save();
 
     res.json({ message: "Category deleted successfully" });
   } catch (err) {
-    console.error("Delete category error:", err);
+    console.error("DELETE CATEGORY ERROR:", err);
     res.status(500).json({ message: "Failed to delete category" });
   }
 };

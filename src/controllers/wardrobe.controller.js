@@ -60,9 +60,8 @@ const addWardrobeItem = async (req, res) => {
     if (!req.files || req.files.length === 0) {
       return res.status(400).json({ message: "At least one image is required" });
     }
-    const imagePaths = req.files.map(file =>
-      file.path.replace(/\\/g, "/") // ✅ FIX WINDOWS PATH
-    );
+    const imagePaths = req.files.map(file => file.location);
+
 
     const { category, wardrobe, brand, visibility, description } = req.body;
     const price = Number(req.body.price || 0);
@@ -404,6 +403,14 @@ const deleteWardrobe = async (req, res) => {
       return res.status(403).json({ message: "Not authorized to delete this wardrobe" });
     }
 
+    const items = await WardrobeItem.find({ wardrobe: wardrobeId }).select("images");
+
+for (const item of items) {
+  await Promise.all(
+    item.images.map(img => deleteFromS3(img))
+  );
+}
+
     // 3️⃣ Delete all items inside wardrobe
     await WardrobeItem.deleteMany({ wardrobe: wardrobeId });
 
@@ -448,6 +455,17 @@ const deleteMultipleWardrobes = async (req, res) => {
 
     const validWardrobeIds = wardrobes.map(w => w._id);
 
+    // 2️⃣ Fetch all items & images
+const items = await WardrobeItem.find({
+  wardrobe: { $in: validWardrobeIds },
+}).select("images");
+
+// 3️⃣ Delete images from S3
+for (const item of items) {
+  await Promise.all(
+    (item.images || []).map(img => deleteFromS3(img))
+  );
+}
     // 2️⃣ Delete all items inside these wardrobes
     await WardrobeItem.deleteMany({
       wardrobe: { $in: validWardrobeIds },
@@ -625,7 +643,7 @@ const updateWardrobeItem = async (req, res) => {
 
     // New uploaded images
     const newImages = req.files
-      ? req.files.map(file => file.path.replace(/\\/g, "/"))
+      ? req.files.map(file => file.location)
       : [];
 
     // Delete images that user REMOVED

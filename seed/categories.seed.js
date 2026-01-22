@@ -22,25 +22,18 @@ const ALL_CATEGORIES = {
   ],
 };
 
-const normalizeFileName = (name) =>
-  name.replace(/[\s-]/g, "");
-
 async function seedCategories() {
   try {
     await mongoose.connect(process.env.MONGO_URI);
 
     for (const type of Object.keys(ALL_CATEGORIES)) {
       for (const name of ALL_CATEGORIES[type]) {
-        const fileName = normalizeFileName(name);
-        const coverImage = `/uploads/categories/${type}/${fileName}.png`;
-
         await Category.updateOne(
           { name, type },
           {
-            $set: {
+            $setOnInsert: {
               name,
               type,
-              coverImage,
               isActive: true,
             },
           },
@@ -49,10 +42,10 @@ async function seedCategories() {
       }
     }
 
-    console.log("✅ Categories updated with cover images safely");
+    console.log("✅ Categories seeded safely");
     process.exit(0);
   } catch (err) {
-    console.error("❌ Category update failed:", err.message);
+    console.error("❌ Seed failed:", err.message);
     process.exit(1);
   }
 }

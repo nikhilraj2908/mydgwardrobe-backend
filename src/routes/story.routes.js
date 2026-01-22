@@ -11,6 +11,13 @@ const {
 
 
 /* Create Story */
+// router.post(
+//   "/",
+//   auth,
+//   upload.single("media"),
+//   createStory
+// );
+
 router.post(
   "/",
   auth,

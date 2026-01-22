@@ -1,4 +1,5 @@
 const Story = require("../models/story.model");
+const { uploadToS3, deleteFromS3 } = require("../utils/s3");
 
 /* ================= CREATE STORY ================= */
 exports.createStory = async (req, res) => {
@@ -17,27 +18,33 @@ exports.createStory = async (req, res) => {
       ? "video"
       : "image";
 
+    // 🔥 Upload to S3
+    const mediaUrl = await uploadToS3(
+      req.file,
+      "stories"
+    );
+
     const story = await Story.create({
       user: req.user._id,
 
-      // ✅ store relative path
-      media: `/uploads/story/${req.file.filename}`,
+      // ✅ store S3 URL
+      media: mediaUrl,
 
       mediaType,
 
-      // ✅ UI playback time only
+      // UI playback duration
       duration: displayDuration,
 
-      // ✅ FEED LIFETIME → 24 HOURS
+      // Story expiry (24 hours)
       expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
     });
 
     res.status(201).json(story);
   } catch (err) {
+    console.error("CREATE STORY ERROR:", err);
     res.status(500).json({ message: err.message });
   }
 };
-
 
 /* ================= GET ACTIVE STORIES ================= */
 exports.getActiveStories = async (req, res) => {
@@ -46,7 +53,8 @@ exports.getActiveStories = async (req, res) => {
       expiresAt: { $gt: new Date() },
     })
       .populate("user", "username photo")
-      .sort({ createdAt: 1 });
+      .sort({ createdAt: 1 })
+      .lean();
 
     const grouped = {};
 
@@ -67,28 +75,45 @@ exports.getActiveStories = async (req, res) => {
   }
 };
 
-
 /* ================= DELETE STORY ================= */
 exports.deleteStory = async (req, res) => {
-  const story = await Story.findById(req.params.id);
+  try {
+    const story = await Story.findById(req.params.id);
 
-  if (!story) return res.status(404).json({ message: "Story not found" });
-  if (story.user.toString() !== req.user._id.toString())
-    return res.status(403).json({ message: "Not allowed" });
+    if (!story) {
+      return res.status(404).json({ message: "Story not found" });
+    }
 
-  await story.deleteOne();
-  res.json({ success: true });
+    if (story.user.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: "Not allowed" });
+    }
+
+    // 🔥 Delete media from S3
+    await deleteFromS3(story.media);
+
+    await story.deleteOne();
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error("DELETE STORY ERROR:", err);
+    res.status(500).json({ message: "Server error" });
+  }
 };
 
+/* ================= MARK STORY VIEWED ================= */
 exports.markStoryViewed = async (req, res) => {
-  const story = await Story.findById(req.params.id);
+  try {
+    const story = await Story.findById(req.params.id);
 
-  if (!story) return res.sendStatus(404);
+    if (!story) return res.sendStatus(404);
 
-  if (!story.viewers.includes(req.user._id)) {
-    story.viewers.push(req.user._id);
-    await story.save();
+    if (!story.viewers.includes(req.user._id)) {
+      story.viewers.push(req.user._id);
+      await story.save();
+    }
+
+    res.json({ views: story.viewers.length });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
   }
-
-  res.json({ views: story.viewers.length });
 };

@@ -1,57 +1,51 @@
 const multer = require("multer");
+const multerS3 = require("multer-s3");
 const path = require("path");
-const fs = require("fs");
+const s3 = require("../utils/s3");
 
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    let uploadPath = "uploads/others"; // default (safe)
+const upload = multer({
+  storage: multerS3({
+    s3,
+    bucket: process.env.AWS_BUCKET_NAME,
+    contentType: multerS3.AUTO_CONTENT_TYPE,
+    metadata: (req, file, cb) => {
+      cb(null, { fieldName: file.fieldname });
+    },
+    key: (req, file, cb) => {
+      let folder = "others";
 
-    // ✅ Story uploads
-    if (req.originalUrl.startsWith("/api/story")) {
-      uploadPath = "uploads/story";
+      // 🔹 Decide folder based on API
+      if (req.originalUrl.startsWith("/api/story")) {
+        folder = "story";
+      } else if (req.originalUrl.startsWith("/api/wardrobe")) {
+        folder = "wardrobe";
+      } else if (req.originalUrl.startsWith("/api/user")) {
+        folder = "profile";
+      } else if (req.originalUrl.startsWith("/api/category")) {
+        folder = "categories";
+      }
+
+      const ext = path.extname(file.originalname);
+      const filename = `${folder}/${Date.now()}-${Math.round(
+        Math.random() * 1e9
+      )}${ext}`;
+
+      cb(null, filename);
+    },
+  }),
+
+  fileFilter: (req, file, cb) => {
+    if (
+      file.mimetype.startsWith("image/") ||
+      file.mimetype.startsWith("video/")
+    ) {
+      cb(null, true);
+    } else {
+      cb(new Error("Only image or video files are allowed"), false);
     }
-
-    // ✅ Wardrobe uploads (if you want separation)
-    else if (req.originalUrl.startsWith("/api/wardrobe")) {
-      uploadPath = "uploads/wardrobe";
-    }
-
-    // ✅ Profile uploads
-    else if (req.originalUrl.startsWith("/api/user")) {
-      uploadPath = "uploads/profile";
-    }
-
-    // Ensure folder exists
-    fs.mkdirSync(uploadPath, { recursive: true });
-
-    cb(null, uploadPath);
   },
 
-  filename: (req, file, cb) => {
-    const uniqueName =
-      Date.now() +
-      "-" +
-      Math.round(Math.random() * 1e9) +
-      path.extname(file.originalname);
-
-    cb(null, uniqueName);
-  },
-});
-
-const fileFilter = (req, file, cb) => {
-  // Allow images & videos everywhere
-  if (
-    file.mimetype.startsWith("image/") ||
-    file.mimetype.startsWith("video/")
-  ) {
-    cb(null, true);
-  } else {
-    cb(new Error("Only image or video files are allowed"), false);
-  }
-};
-
-module.exports = multer({
-  storage,
-  fileFilter,
   limits: { fileSize: 50 * 1024 * 1024 }, // 50MB
 });
+
+module.exports = upload;
