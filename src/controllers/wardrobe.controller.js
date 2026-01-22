@@ -58,8 +58,8 @@ const { deleteFromS3 } = require("../utils/s3");
 const addWardrobeItem = async (req, res) => {
   try {
 
-    console.log("REQ BODY:", req.body);
-console.log("REQ FILES:", req.files);
+    console.log("REQ BODY:", req.body)
+console.log("REQ FILES:", req.files)
 
     if (!req.files || req.files.length === 0) {
       return res.status(400).json({ message: "At least one image is required" });
