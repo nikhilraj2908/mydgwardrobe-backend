@@ -59,7 +59,7 @@ const addWardrobeItem = async (req, res) => {
   try {
 
     console.log("REQ BODY:", req.body)
-console.log("REQ FILES:", req.files)
+    console.log("REQ FILES:", req.files)
 
     if (!req.files || req.files.length === 0) {
       return res.status(400).json({ message: "At least one image is required" });
@@ -112,7 +112,7 @@ console.log("REQ FILES:", req.files)
     /* ===============================
        3️⃣ UPDATE ITEM COUNT
        =============================== */
-       
+
 
     await Wardrobe.findByIdAndUpdate(
       wardrobeDoc._id,
@@ -295,7 +295,11 @@ const deleteWardrobeItem = async (req, res) => {
 
     // 3️⃣ Find wardrobe (by name + user)
     const wardrobe = await Wardrobe.findById(item.wardrobe);
-
+    if (Array.isArray(item.images)) {
+      await Promise.all(
+        item.images.map(img => deleteFromS3(img))
+      );
+    }
     // 4️⃣ Delete item
     await item.deleteOne();
 
@@ -409,11 +413,11 @@ const deleteWardrobe = async (req, res) => {
 
     const items = await WardrobeItem.find({ wardrobe: wardrobeId }).select("images");
 
-for (const item of items) {
-  await Promise.all(
-    item.images.map(img => deleteFromS3(img))
-  );
-}
+    for (const item of items) {
+      await Promise.all(
+        item.images.map(img => deleteFromS3(img))
+      );
+    }
 
     // 3️⃣ Delete all items inside wardrobe
     await WardrobeItem.deleteMany({ wardrobe: wardrobeId });
@@ -460,16 +464,16 @@ const deleteMultipleWardrobes = async (req, res) => {
     const validWardrobeIds = wardrobes.map(w => w._id);
 
     // 2️⃣ Fetch all items & images
-const items = await WardrobeItem.find({
-  wardrobe: { $in: validWardrobeIds },
-}).select("images");
+    const items = await WardrobeItem.find({
+      wardrobe: { $in: validWardrobeIds },
+    }).select("images");
 
-// 3️⃣ Delete images from S3
-for (const item of items) {
-  await Promise.all(
-    (item.images || []).map(img => deleteFromS3(img))
-  );
-}
+    // 3️⃣ Delete images from S3
+    for (const item of items) {
+      await Promise.all(
+        (item.images || []).map(img => deleteFromS3(img))
+      );
+    }
     // 2️⃣ Delete all items inside these wardrobes
     await WardrobeItem.deleteMany({
       wardrobe: { $in: validWardrobeIds },
@@ -574,6 +578,11 @@ const deleteMultipleWardrobeItems = async (req, res) => {
         message: "No items found to delete",
       });
     }
+    for (const item of items) {
+      await Promise.all(
+        (item.images || []).map(img => deleteFromS3(img))
+      );
+    }
 
     // 2️⃣ Count deletions per wardrobe
     const wardrobeCountMap = {};
@@ -582,6 +591,7 @@ const deleteMultipleWardrobeItems = async (req, res) => {
       const wid = item.wardrobe.toString();
       wardrobeCountMap[wid] = (wardrobeCountMap[wid] || 0) + 1;
     });
+
 
     // 3️⃣ Delete items
     await WardrobeItem.deleteMany({

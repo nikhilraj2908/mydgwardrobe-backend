@@ -8,4 +8,25 @@ AWS.config.update({
 
 const s3 = new AWS.S3();
 
-module.exports = s3;
+/* ===============================
+   DELETE FROM S3
+================================ */
+const deleteFromS3 = async (fileUrl) => {
+  if (!fileUrl) return;
+
+  // Extract key from full S3 URL
+  const key = fileUrl.split(".amazonaws.com/")[1];
+  if (!key) return;
+
+  await s3
+    .deleteObject({
+      Bucket: process.env.AWS_BUCKET_NAME,
+      Key: key,
+    })
+    .promise();
+};
+
+module.exports = {
+  s3,           // ✅ keeps multer-s3 working
+  deleteFromS3, // ✅ fixes story delete
+};

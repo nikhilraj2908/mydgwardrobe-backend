@@ -1,6 +1,5 @@
 const Story = require("../models/story.model");
-const { uploadToS3, deleteFromS3 } = require("../utils/s3");
-
+const { deleteFromS3 } = require("../utils/s3");
 /* ================= CREATE STORY ================= */
 exports.createStory = async (req, res) => {
   try {
@@ -18,24 +17,11 @@ exports.createStory = async (req, res) => {
       ? "video"
       : "image";
 
-    // 🔥 Upload to S3
-    const mediaUrl = await uploadToS3(
-      req.file,
-      "stories"
-    );
-
     const story = await Story.create({
       user: req.user._id,
-
-      // ✅ store S3 URL
-      media: mediaUrl,
-
+      media: req.file.location, // ✅ S3 URL
       mediaType,
-
-      // UI playback duration
       duration: displayDuration,
-
-      // Story expiry (24 hours)
       expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
     });
 
@@ -45,6 +31,7 @@ exports.createStory = async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 };
+
 
 /* ================= GET ACTIVE STORIES ================= */
 exports.getActiveStories = async (req, res) => {
