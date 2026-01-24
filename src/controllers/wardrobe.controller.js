@@ -64,7 +64,7 @@ const addWardrobeItem = async (req, res) => {
     if (!req.files || req.files.length === 0) {
       return res.status(400).json({ message: "At least one image is required" });
     }
-    const imagePaths = req.files.map(file => file.location);
+    const imagePaths = req.files.map(file => file.key);
 
 
     const { category, wardrobe, brand, visibility, description } = req.body;
