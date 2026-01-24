@@ -1,4 +1,5 @@
 const Follow = require("../models/follow.model");
+const Notification = require("../models/notification.model");
 
 /* ================================
    FOLLOW / UNFOLLOW USER
@@ -30,6 +31,15 @@ exports.toggleFollow = async (req, res) => {
       follower: followerId,
       following: userId,
     });
+     // ✅ CREATE FOLLOW NOTIFICATION
+    await Notification.create({
+      user: userId,              // receiver
+      actor: followerId,         // who followed
+      type: "follow",
+      message: "started following you",
+      read: false,
+    });
+
 
     res.json({ following: true });
   } catch (err) {
