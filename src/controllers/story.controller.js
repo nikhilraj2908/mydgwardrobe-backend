@@ -19,7 +19,7 @@ exports.createStory = async (req, res) => {
 
     const story = await Story.create({
       user: req.user._id,
-      media: req.file.location, // ✅ S3 URL
+      media: req.file.key        , // ✅ S3 URL
       mediaType,
       duration: displayDuration,
       expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
