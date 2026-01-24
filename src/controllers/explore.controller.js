@@ -6,7 +6,13 @@ const Wardrobe = require("../models/wardrobe.model");
 ====================================================== */
 exports.getExploreItems = async (req, res) => {
   try {
-    const { category, search } = req.query;
+    const {
+      category,
+      search,
+      sort = "newest",
+      page = 1,
+      limit = 20,
+    } = req.query;
 
     const filter = { visibility: "public" };
 
@@ -26,13 +32,43 @@ exports.getExploreItems = async (req, res) => {
       ];
     }
 
-    const items = await WardrobeItem.find(filter)
-      .populate("wardrobe", "name")
-      .sort({ createdAt: -1 })
-      .select("images imageUrl category brand price wardrobe createdAt")
-      .lean();
+    /* ================= SORT MAPPING ================= */
+    let sortQuery = { createdAt: -1 }; // default
 
-    // 🔥 Normalize image paths
+    switch (sort) {
+      case "price-high":
+        sortQuery = { price: -1 };
+        break;
+
+      case "price-low":
+        sortQuery = { price: 1 };
+        break;
+
+      case "popular":
+        sortQuery = { likes: -1 };
+        break;
+
+      case "newest":
+      default:
+        sortQuery = { createdAt: -1 };
+    }
+
+    /* ================= QUERY ================= */
+    const skip = (Number(page) - 1) * Number(limit);
+
+    const [items, total] = await Promise.all([
+      WardrobeItem.find(filter)
+        .populate("wardrobe", "name")
+        .sort(sortQuery)
+        .skip(skip)
+        .limit(Number(limit))
+        .select("images imageUrl category brand price wardrobe createdAt")
+        .lean(),
+
+      WardrobeItem.countDocuments(filter),
+    ]);
+
+    /* ================= IMAGE NORMALIZATION ================= */
     const normalized = items.map(item => {
       let images = [];
 
@@ -47,13 +83,13 @@ exports.getExploreItems = async (req, res) => {
       return {
         ...item,
         images,
-        imageUrl: undefined, // prevent confusion
+        imageUrl: undefined,
       };
     });
 
     res.json({
       items: normalized,
-      total: normalized.length,
+      total,
     });
 
   } catch (error) {
