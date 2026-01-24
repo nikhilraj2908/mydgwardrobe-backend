@@ -657,8 +657,9 @@ const updateWardrobeItem = async (req, res) => {
 
     // New uploaded images
     const newImages = req.files
-      ? req.files.map(file => file.location)
+      ? req.files.map(file => file.key) // ✅ STORE ONLY S3 KEY
       : [];
+
 
     // Delete images that user REMOVED
     if (Array.isArray(item.images)) {
@@ -676,7 +677,8 @@ const updateWardrobeItem = async (req, res) => {
     }
 
     // Final merged images
-    item.images = [...existingImages, ...newImages];
+    item.images = [...existingImages, ...newImages]; // now ALL are keys
+
 
 
     /* 📝 FIELD UPDATES */

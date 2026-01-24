@@ -11,20 +11,25 @@ const s3 = new AWS.S3();
 /* ===============================
    DELETE FROM S3
 ================================ */
-const deleteFromS3 = async (fileUrl) => {
-  if (!fileUrl) return;
+const deleteFromS3 = async (filePath) => {
+  if (!filePath) return;
 
-  // Extract key from full S3 URL
-  const key = fileUrl.split(".amazonaws.com/")[1];
-  if (!key) return;
+  // If full URL → extract key
+  let key = filePath;
 
-  await s3
-    .deleteObject({
-      Bucket: process.env.AWS_BUCKET_NAME,
-      Key: key,
-    })
-    .promise();
+  if (filePath.startsWith("http")) {
+    const parts = filePath.split(".amazonaws.com/");
+    if (parts.length > 1) {
+      key = parts[1];
+    }
+  }
+
+  await s3.deleteObject({
+    Bucket: process.env.AWS_BUCKET_NAME,
+    Key: key,
+  }).promise();
 };
+
 
 module.exports = {
   s3,           // ✅ keeps multer-s3 working
