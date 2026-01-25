@@ -36,9 +36,21 @@ const getUserWardrobesWithStats = async (req, res) => {
           (sum, item) => sum + (item.price || 0),
           0
         );
+        // ✅ pick first visible item
+        const firstVisibleItem = items.find(
+          (i) => isOwner || i.visibility === "public"
+        );
 
-        const coverImage =
-          items.find((i) => i.visibility === "public")?.imageUrl || null;
+        // ✅ extract image correctly (new system first)
+        let images = [];
+
+        if (firstVisibleItem) {
+          if (Array.isArray(firstVisibleItem.images) && firstVisibleItem.images.length) {
+            images = [firstVisibleItem.images[0]];
+          } else if (firstVisibleItem.imageUrl) {
+            images = [firstVisibleItem.imageUrl]; // legacy fallback
+          }
+        }
 
         return {
           _id: wardrobe._id,
@@ -46,11 +58,18 @@ const getUserWardrobesWithStats = async (req, res) => {
           color: wardrobe.color,
           totalItems,
           totalWorth,
-          coverImage,
+
+          // ✅ NEW — what frontend actually uses
+          images,
+
+          // ⚠️ optional legacy support
+          coverImage: images[0] || null,
+
           hasPrivateItems: isOwner
             ? items.some((i) => i.visibility === "private")
             : false,
         };
+
       })
     );
 
@@ -156,7 +175,7 @@ const getCollectionViewCount = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
-module.exports={
+module.exports = {
   getUserWardrobesWithStats,
   getCollectionLikeCount,
   trackCollectionView,
