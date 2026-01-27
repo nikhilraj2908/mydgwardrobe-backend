@@ -21,7 +21,8 @@ const {
   deleteMultipleWardrobeItems,
   updateWardrobeItem,
   moveWardrobeItem,
-  moveWardrobeItemsBulk
+  moveWardrobeItemsBulk,
+  updateItemAccessLevel
 } = require("../controllers/wardrobe.controller");
 
 const { getExploreItems } = require("../controllers/explore.controller");
@@ -142,6 +143,11 @@ router.put(
   updateWardrobe
 );
 
+router.patch(
+  "/:itemId/access",
+  auth,
+  updateItemAccessLevel
+);
 
 
 module.exports = router;

@@ -16,6 +16,7 @@ const savedRoutes = require("./src/routes/saved.routes");
 const getCategory= require('./src/routes/category.routes');
 const notificationRoutes = require("./src/routes/notification.routes");
 const followRoutes = require("./src/routes/follow.routes");
+const premiumRoutes = require("./src/routes/premium.routes");
 const app = express();
 
 /* ================= CORS ================= */
@@ -63,7 +64,7 @@ app.use("/api/categories",getCategory);
 
 app.use("/api", notificationRoutes);
 app.use("/api/follow", followRoutes);
-
+app.use("/api/premium", premiumRoutes);
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);

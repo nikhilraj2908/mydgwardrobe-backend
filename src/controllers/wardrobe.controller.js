@@ -106,7 +106,8 @@ const addWardrobeItem = async (req, res) => {
       price,
       brand,
       description: description || "",
-      visibility: visibility || "private",
+     
+       accessLevel: "normal",
     });
 
     /* ===============================
@@ -354,8 +355,14 @@ const getWardrobeItemsByWardrobe = async (req, res) => {
     // 3️⃣ Build filter
     const filter = {
       wardrobe: wardrobeId,
-      ...(isOwner ? {} : { visibility: "public" }),
+      ...(isOwner
+        ? {}
+        : {
+          visibility: "public",
+          accessLevel: { $ne: "premium" },
+        }),
     };
+
 
     // 4️⃣ Fetch items
     const items = await WardrobeItem.find(filter)
@@ -378,8 +385,14 @@ const getPublicUserItems = async (req, res) => {
 
     const filter = {
       user: userId,
-      ...(isOwner ? {} : { visibility: "public" }),
+      ...(isOwner
+        ? {}
+        : {
+          visibility: "public",
+          accessLevel: { $ne: "premium" }, // 🔒 hide premium
+        }),
     };
+
 
     const items = await WardrobeItem.find(filter)
       .populate("wardrobe", "name color")
@@ -861,6 +874,44 @@ const moveWardrobeItemsBulk = async (req, res) => {
   }
 };
 
+const updateItemAccessLevel = async (req, res) => {
+  try {
+    const { itemId } = req.params;
+    const { accessLevel } = req.body;
+    const userId = req.user._id;
+
+    if (!["normal", "premium"].includes(accessLevel)) {
+      return res.status(400).json({ message: "Invalid access level" });
+    }
+
+    const item = await WardrobeItem.findById(itemId);
+
+    if (!item) {
+      return res.status(404).json({ message: "Item not found" });
+    }
+
+    // 🔒 Only owner can change access
+    if (String(item.user) !== String(userId)) {
+      return res.status(403).json({ message: "Not authorized" });
+    }
+
+    item.accessLevel = accessLevel;
+    await item.save();
+
+    res.json({
+      message: `Item marked as ${accessLevel}`,
+      itemId: item._id,
+      accessLevel: item.accessLevel,
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Something went wrong" });
+  }
+};
+
+
+
+
 module.exports = {
   addWardrobeItem,
   getMyWardrobeItems,
@@ -877,5 +928,6 @@ module.exports = {
   deleteMultipleWardrobeItems,
   updateWardrobeItem,
   moveWardrobeItem,
-  moveWardrobeItemsBulk
+  moveWardrobeItemsBulk,
+  updateItemAccessLevel
 };

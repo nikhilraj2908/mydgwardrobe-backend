@@ -55,7 +55,15 @@ const wardrobeItemSchema = new mongoose.Schema(
       default: "private",
       index: true,
     },
+    accessLevel: {
+      type: String,
+      enum: ["normal", "premium"],
+      default: "normal",
+      index: true,
+    },
   },
+
+
   { timestamps: true }
 );
 
