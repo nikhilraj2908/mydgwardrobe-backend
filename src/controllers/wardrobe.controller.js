@@ -94,6 +94,12 @@ const addWardrobeItem = async (req, res) => {
         isDefault: false,
       });
     }
+    const allowedVisibility = ["public", "private"];
+
+    const finalVisibility = allowedVisibility.includes(visibility)
+      ? visibility
+      : "private";
+
 
     /* ===============================
        2️⃣ CREATE WARDROBE ITEM
@@ -106,9 +112,10 @@ const addWardrobeItem = async (req, res) => {
       price,
       brand,
       description: description || "",
-     
-       accessLevel: "normal",
+     visibility: finalVisibility,
+      accessLevel: "normal",
     });
+
 
     /* ===============================
        3️⃣ UPDATE ITEM COUNT
