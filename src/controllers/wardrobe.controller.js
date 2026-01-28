@@ -99,7 +99,11 @@ const addWardrobeItem = async (req, res) => {
     const finalVisibility = allowedVisibility.includes(visibility)
       ? visibility
       : "private";
+    const allowedAccess = ["normal", "premium"];
 
+    const finalAccessLevel = allowedAccess.includes(req.body.accessLevel)
+      ? req.body.accessLevel
+      : "normal";
 
     /* ===============================
        2️⃣ CREATE WARDROBE ITEM
@@ -112,8 +116,8 @@ const addWardrobeItem = async (req, res) => {
       price,
       brand,
       description: description || "",
-     visibility: finalVisibility,
-      accessLevel: "normal",
+      visibility: finalVisibility,
+      accessLevel: finalAccessLevel,
     });
 
 
