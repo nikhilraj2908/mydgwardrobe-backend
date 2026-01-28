@@ -199,3 +199,20 @@ exports.hasPremiumCollection = async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 };
+
+// GET /api/premium/status?itemId=
+exports.getPremiumRequestStatus = async (req, res) => {
+  const { itemId } = req.query;
+  const userId = req.user._id;
+
+  const request = await PremiumAccessRequest.findOne({
+    requester: userId,
+    item: itemId,
+  });
+
+  if (!request) {
+    return res.json({ status: "none" });
+  }
+
+  res.json({ status: request.status }); // pending | approved | rejected
+};
