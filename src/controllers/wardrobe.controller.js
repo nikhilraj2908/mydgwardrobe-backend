@@ -656,6 +656,7 @@ const updateWardrobeItem = async (req, res) => {
       description,
       visibility,
       price,
+       accessLevel,
     } = req.body;
 
     const item = await WardrobeItem.findById(itemId);
@@ -711,7 +712,12 @@ const updateWardrobeItem = async (req, res) => {
     if (description !== undefined) item.description = description;
     if (visibility !== undefined) item.visibility = visibility;
     if (price !== undefined) item.price = Number(price);
-
+if (accessLevel !== undefined) {
+  if (!["normal", "premium"].includes(accessLevel)) {
+    return res.status(400).json({ message: "Invalid access level" });
+  }
+  item.accessLevel = accessLevel;
+}
     await item.save();
 
     res.json({
