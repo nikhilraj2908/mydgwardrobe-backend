@@ -1,5 +1,6 @@
 const PremiumAccessRequest = require("../models/PremiumAccessRequest.model");
 const WardrobeItem = require("../models/wardrobeItem.model");
+
 exports.requestPremiumAccess = async (req, res) => {
     try {
         const { itemId } = req.body;
@@ -146,12 +147,55 @@ exports.getUserPremiumItems = async (req, res) => {
   }
 };
 
-exports.hasPremiumCollection = async (req, res) => {
-  const count = await WardrobeItem.countDocuments({
-    user: req.params.userId,
-    accessLevel: "premium",
-    visibility: "public",
-  });
 
-  res.json({ hasPremium: count > 0 });
+exports.hasPremiumCollection = async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    // Fetch ALL public premium items (light query)
+    const premiumItems = await WardrobeItem.find(
+      {
+        user: userId,
+        accessLevel: "premium",
+        visibility: "public",
+      },
+      {
+        price: 1,
+        images: 1,
+      }
+    ).sort({ createdAt: -1 }); // newest first (optional)
+
+    if (!premiumItems.length) {
+      return res.json({
+        hasPremium: false,
+        sampleItemId: null,
+        count: 0,
+        totalWorth: 0,
+        coverImage: null,
+      });
+    }
+
+    const count = premiumItems.length;
+
+    const totalWorth = premiumItems.reduce(
+      (sum, item) => sum + (item.price || 0),
+      0
+    );
+
+    const sampleItem = premiumItems[0];
+
+    res.json({
+      hasPremium: true,
+      sampleItemId: sampleItem._id,
+      count,
+      totalWorth,
+      coverImage:
+        sampleItem.images && sampleItem.images.length > 0
+          ? sampleItem.images[0]
+          : null,
+    });
+  } catch (err) {
+    console.error("HAS PREMIUM COLLECTION ERROR:", err);
+    res.status(500).json({ message: "Server error" });
+  }
 };
