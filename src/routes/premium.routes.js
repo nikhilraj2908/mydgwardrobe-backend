@@ -6,7 +6,8 @@ const {
   getMyPremiumRequests,
   respondToPremiumRequest,
   checkPremiumAccess,
-  getUserPremiumItems
+  getUserPremiumItems,
+  hasPremiumCollection
 } = require("../controllers/premiumController");
 
 const auth = require("../middlewares/auth.middleware"); // or auth / protect
@@ -26,5 +27,11 @@ router.get(
   "/user/:userId/premium-items",
   auth,
   getUserPremiumItems
+);
+
+router.get(
+  "/user/:userId/has-premium",
+  auth,
+  hasPremiumCollection
 );
 module.exports = router;

@@ -145,3 +145,13 @@ exports.getUserPremiumItems = async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 };
+
+exports.hasPremiumCollection = async (req, res) => {
+  const count = await WardrobeItem.countDocuments({
+    user: req.params.userId,
+    accessLevel: "premium",
+    visibility: "public",
+  });
+
+  res.json({ hasPremium: count > 0 });
+};
