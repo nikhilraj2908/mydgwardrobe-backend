@@ -87,7 +87,7 @@ exports.getPublicFeed = async (req, res) => {
           },
         },
       },
-      ,
+      
       {
         $addFields: {
           totalItems: { $size: "$publicItems" },
