@@ -2,7 +2,7 @@ const WardrobeItem = require("../models/wardrobeItem.model");
 const Wardrobe = require("../models/wardrobe.model");
 
 /* ======================================================
-   EXPLORE – GET ALL PUBLIC ITEMS
+   EXPLORE – GET ALL PUBLIC (NON-PREMIUM) ITEMS ONLY
 ====================================================== */
 exports.getExploreItems = async (req, res) => {
   try {
@@ -14,7 +14,11 @@ exports.getExploreItems = async (req, res) => {
       limit = 20,
     } = req.query;
 
-    const filter = { visibility: "public" };
+    // 🔒 CORE SECURITY FILTER
+    const filter = {
+      visibility: "public",
+      accessLevel: "normal", // ✅ THIS IS THE FIX
+    };
 
     if (category && category !== "All") {
       filter.category = category;
@@ -33,27 +37,23 @@ exports.getExploreItems = async (req, res) => {
     }
 
     /* ================= SORT MAPPING ================= */
-    let sortQuery = { createdAt: -1 }; // default
+    let sortQuery = { createdAt: -1 };
 
     switch (sort) {
       case "price-high":
         sortQuery = { price: -1 };
         break;
-
       case "price-low":
         sortQuery = { price: 1 };
         break;
-
       case "popular":
         sortQuery = { likes: -1 };
         break;
-
       case "newest":
       default:
         sortQuery = { createdAt: -1 };
     }
 
-    /* ================= QUERY ================= */
     const skip = (Number(page) - 1) * Number(limit);
 
     const [items, total] = await Promise.all([
@@ -91,7 +91,6 @@ exports.getExploreItems = async (req, res) => {
       items: normalized,
       total,
     });
-
   } catch (error) {
     console.error("EXPLORE CONTROLLER ERROR:", error);
     res.status(500).json({ message: "Server error" });
