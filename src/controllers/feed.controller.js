@@ -13,7 +13,12 @@ exports.getPublicFeed = async (req, res) => {
        ITEM POSTS (public items)
     =============================== */
     const itemPosts = await WardrobeItem.aggregate([
-      { $match: { visibility: "public" } },
+      {
+        $match: {
+          visibility: "public",
+          accessLevel: "normal", // 🔒 HIDE PREMIUM ITEMS
+        },
+      },
 
       {
         $lookup: {
@@ -72,11 +77,17 @@ exports.getPublicFeed = async (req, res) => {
             $filter: {
               input: "$items",
               as: "item",
-              cond: { $eq: ["$$item.visibility", "public"] }
-            }
-          }
-        }
+              cond: {
+                $and: [
+                  { $eq: ["$$item.visibility", "public"] },
+                  { $eq: ["$$item.accessLevel", "normal"] },
+                ],
+              },
+            },
+          },
+        },
       },
+      ,
       {
         $addFields: {
           totalItems: { $size: "$publicItems" },
@@ -153,11 +164,17 @@ exports.getCollectionFeed = async (req, res) => {
             $filter: {
               input: "$items",
               as: "item",
-              cond: { $eq: ["$$item.visibility", "public"] },
+              cond: {
+                $and: [
+                  { $eq: ["$$item.visibility", "public"] },
+                  { $eq: ["$$item.accessLevel", "normal"] },
+                ],
+              },
             },
           },
         },
       },
+
 
       {
         $addFields: {
