@@ -240,3 +240,42 @@ exports.getApprovedByMe = async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 };
+
+
+// GET /api/premium/pending-count
+exports.getPendingPremiumCount = async (req, res) => {
+  try {
+    const ownerId = req.user._id;
+
+    const count = await PremiumAccessRequest.countDocuments({
+      owner: ownerId,
+      status: "pending",
+    });
+
+    res.json({ count });
+  } catch (err) {
+    console.error("Pending premium count error", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+
+// POST /api/premium/revoke
+exports.revokePremiumAccess = async (req, res) => {
+  const { requestId } = req.body;
+
+  const request = await PremiumAccessRequest.findById(requestId);
+
+  if (!request) {
+    return res.status(404).json({ message: "Request not found" });
+  }
+
+  if (String(request.owner) !== String(req.user._id)) {
+    return res.status(403).json({ message: "Not authorized" });
+  }
+
+  request.status = "rejected";
+  await request.save();
+
+  res.json({ message: "Access revoked" });
+};

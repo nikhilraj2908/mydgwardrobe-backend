@@ -9,7 +9,9 @@ const {
   getUserPremiumItems,
   hasPremiumCollection,
   getPremiumRequestStatus,
-  getApprovedByMe
+  getApprovedByMe,
+  getPendingPremiumCount,
+  revokePremiumAccess
 } = require("../controllers/premiumController");
 
 const auth = require("../middlewares/auth.middleware"); // or auth / protect
@@ -44,5 +46,8 @@ router.get(
   auth,
   getApprovedByMe
 );
+router.get("/pending-count", auth, getPendingPremiumCount);
+
+router.post("/revoke", auth, revokePremiumAccess);
 
 module.exports = router;
