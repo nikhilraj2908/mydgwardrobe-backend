@@ -8,7 +8,8 @@ const {
   checkPremiumAccess,
   getUserPremiumItems,
   hasPremiumCollection,
-  getPremiumRequestStatus
+  getPremiumRequestStatus,
+  getApprovedByMe
 } = require("../controllers/premiumController");
 
 const auth = require("../middlewares/auth.middleware"); // or auth / protect
@@ -37,5 +38,11 @@ router.get(
 );
 
 router.get("/status", auth, getPremiumRequestStatus);
+
+router.get(
+  "/approved-by-me",
+  auth,
+  getApprovedByMe
+);
 
 module.exports = router;

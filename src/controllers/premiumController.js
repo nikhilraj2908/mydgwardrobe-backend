@@ -1,6 +1,6 @@
 const PremiumAccessRequest = require("../models/PremiumAccessRequest.model");
 const WardrobeItem = require("../models/wardrobeItem.model");
-
+const mongoose = require("mongoose");
 exports.requestPremiumAccess = async (req, res) => {
     try {
         const { itemId } = req.body;
@@ -215,4 +215,28 @@ exports.getPremiumRequestStatus = async (req, res) => {
   }
 
   res.json({ status: request.status }); // pending | approved | rejected
+};
+exports.getApprovedByMe = async (req, res) => {
+  try {
+    const ownerId = new mongoose.Types.ObjectId(req.user._id);
+
+    const approvedRequests = await PremiumAccessRequest.find({
+      owner: ownerId,
+      status: "approved",
+    })
+      .populate("requester", "username photo")
+      .populate({
+        path: "item",
+        select: "name price images imageUrl accessLevel visibility",
+      })
+      .sort({ updatedAt: -1 });
+
+    res.json({
+      count: approvedRequests.length,
+      approvals: approvedRequests,
+    });
+  } catch (err) {
+    console.error("GET APPROVED BY ME ERROR:", err);
+    res.status(500).json({ message: "Server error" });
+  }
 };
