@@ -57,61 +57,70 @@ const { deleteFromS3 } = require("../utils/s3");
 ====================================================== */
 const addWardrobeItem = async (req, res) => {
   try {
-
-    console.log("REQ BODY:", req.body)
-    console.log("REQ FILES:", req.files)
-
     if (!req.files || req.files.length === 0) {
       return res.status(400).json({ message: "At least one image is required" });
     }
-    const imagePaths = req.files.map(file => file.key);
 
+    const useBgRemoval = req.body.useBgRemoval === "true";
+    let finalImageKeys = [];
 
-    const { category, wardrobe, brand, visibility, description } = req.body;
-    const price = Number(req.body.price || 0);
+    for (const file of req.files) {
 
-    if (!category || !wardrobe) {
-      return res.status(400).json({
-        message: "Category and wardrobe are required",
+      // 🔹 Case 1: User wants ORIGINAL
+      if (!useBgRemoval) {
+        finalImageKeys.push(file.key);
+        continue;
+      }
+
+      // 🔹 Case 2: User wants BG REMOVAL
+      // Download file temporarily from S3
+      const tempFilePath = `/tmp/${Date.now()}_${path.basename(file.key)}`;
+
+      const writeStream = fs.createWriteStream(tempFilePath);
+      const s3Stream = s3.getObject({
+        Bucket: process.env.AWS_BUCKET_NAME,
+        Key: file.key,
+      }).createReadStream();
+
+      await new Promise((resolve, reject) => {
+        s3Stream.pipe(writeStream)
+          .on("finish", resolve)
+          .on("error", reject);
       });
+
+      // 🔥 Call Python AI
+      const form = new FormData();
+      form.append("file", fs.createReadStream(tempFilePath));
+
+      const aiResponse = await axios.post(
+        "http://PYTHON_AI_IP:8000/process-item",
+        form,
+        { headers: form.getHeaders(), timeout: 300000 }
+      );
+
+      const processedPath = aiResponse.data.file_path;
+
+      // Upload processed image back to S3
+      const processedKey = `wardrobe/processed-${Date.now()}.png`;
+
+      await s3.upload({
+        Bucket: process.env.AWS_BUCKET_NAME,
+        Key: processedKey,
+        Body: fs.createReadStream(processedPath),
+        ContentType: "image/png",
+      }).promise();
+
+      finalImageKeys.push(processedKey);
     }
 
     /* ===============================
-       1️⃣ FIND OR CREATE WARDROBE
+       SAVE TO DB (NO CHANGE)
        =============================== */
 
-    let wardrobeDoc = await Wardrobe.findOne({
-      name: wardrobe.trim(),
-      user: req.user._id,
-    });
-
-    if (!wardrobeDoc) {
-      wardrobeDoc = await Wardrobe.create({
-        name: wardrobe.trim(),
-        user: req.user._id,
-        color: "#A855F7",   // ✅ REQUIRED FIELD
-        itemCount: 0,
-        isDefault: false,
-      });
-    }
-    const allowedVisibility = ["public", "private"];
-
-    const finalVisibility = allowedVisibility.includes(visibility)
-      ? visibility
-      : "private";
-    const allowedAccess = ["normal", "premium"];
-
-    const finalAccessLevel = allowedAccess.includes(req.body.accessLevel)
-      ? req.body.accessLevel
-      : "normal";
-
-    /* ===============================
-       2️⃣ CREATE WARDROBE ITEM
-       =============================== */
     const item = await WardrobeItem.create({
       user: req.user._id,
       wardrobe: wardrobeDoc._id,
-      images: imagePaths,
+      images: finalImageKeys,
       category,
       price,
       brand,
@@ -120,39 +129,17 @@ const addWardrobeItem = async (req, res) => {
       accessLevel: finalAccessLevel,
     });
 
-
-    /* ===============================
-       3️⃣ UPDATE ITEM COUNT
-       =============================== */
-
-
-    await Wardrobe.findByIdAndUpdate(
-      wardrobeDoc._id,
-      { $inc: { itemCount: 1 } }
-    );
-
     res.status(201).json({
-      message: "Item added to wardrobe successfully",
-      wardrobe: wardrobeDoc,
+      message: "Item added successfully",
       item,
     });
 
   } catch (error) {
     console.error("ADD WARDROBE ITEM ERROR:", error);
-
-    // Duplicate wardrobe edge-case safety
-    if (error.code === 11000) {
-      return res.status(409).json({
-        message: "Wardrobe with this name already exists",
-      });
-    }
-
-    res.status(500).json({
-      message: "Internal server error while adding wardrobe item",
-      error: error.message,
-    });
+    res.status(500).json({ message: "Internal server error" });
   }
 };
+
 
 
 /* ======================================================
