@@ -52,7 +52,7 @@ app.use(
 );
 
 /* 🔥 MUST be here */
-app.options("*", cors());
+app.options("/*", cors());
 
 
 // /* ✅ SAFE OPTIONS HANDLING (NO CRASH) */
