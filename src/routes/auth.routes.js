@@ -12,7 +12,7 @@
 
 const express = require("express");
 const protect = require("../middlewares/auth.middleware");
-const { register, verifyOTP, login, resendOTP, loginWithMobile, verifyMobileLogin, resendMobileOTP, requestPasswordReset, verifyResetToken, resetPassword ,getMe,googleAuth } = require("../controllers/auth.controller");
+const { register, verifyOTP, login, resendOTP, loginWithMobile, verifyMobileLogin, resendMobileOTP, requestPasswordReset, verifyResetToken, resetPassword ,getMe,googleAuth,completeProfile } = require("../controllers/auth.controller");
 
 const router = express.Router();
 
@@ -28,4 +28,5 @@ router.post("/verify-reset-token", verifyResetToken);
 router.post("/reset-password", resetPassword);
 router.get("/me", protect, getMe);
 router.post("/google", googleAuth);
+router.post("/complete-profile", protect, completeProfile);
 module.exports = router;
