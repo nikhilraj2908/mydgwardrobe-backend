@@ -483,8 +483,13 @@ const googleAuth = async (req, res) => {
     // 🔐 Verify token with Google
     const ticket = await googleClient.verifyIdToken({
       idToken,
-      audience: process.env.GOOGLE_CLIENT_ID,
+      audience: [
+        process.env.GOOGLE_WEB_CLIENT_ID,
+        process.env.GOOGLE_ANDROID_CLIENT_ID,
+        // process.env.GOOGLE_IOS_CLIENT_ID, // optional
+      ],
     });
+
 
     const payload = ticket.getPayload();
 
