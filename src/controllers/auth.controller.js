@@ -370,14 +370,15 @@ const resendMobileOTP = async (req, res) => {
 /* =========================================================
    PASSWORD RESET REQUEST
 ========================================================= */
+/* =========================================================
+   PASSWORD RESET REQUEST (OTP)
+========================================================= */
 const requestPasswordReset = async (req, res) => {
   try {
     const { identifier } = req.body;
 
     if (!identifier)
-      return res
-        .status(400)
-        .json({ message: "Email or mobile number required" });
+      return res.status(400).json({ message: "Email or mobile required" });
 
     const user = await User.findOne({
       $or: [{ email: identifier }, { mobile: identifier }],
@@ -387,22 +388,27 @@ const requestPasswordReset = async (req, res) => {
       return res.status(404).json({ message: "User not found" });
 
     const email = user.email;
-    const token = crypto.randomBytes(32).toString("hex");
-    const expiry = new Date(Date.now() + 15 * 60 * 1000);
 
+    // Throttle (reuse logic if you want)
     await PasswordReset.deleteMany({ email });
+
+    const otpCode = generateOTP();
+    const hashedOtp = await bcrypt.hash(otpCode, 10);
+    const expiry = new Date(Date.now() + 10 * 60 * 1000);
 
     await PasswordReset.create({
       email,
-      token,
+      otp: hashedOtp,
       expiresAt: expiry,
+      verified: false,
     });
 
-    const resetLink = `mydgwardrobe://reset-password?token=${token}`;
-    await sendResetMail(email, resetLink);
+    // ✅ USE EXISTING sendOTP
+    await sendOTP(email, otpCode);
 
     return res.json({
-      message: "Password reset link sent to your email",
+      message: "OTP sent to registered email",
+      email,
     });
   } catch (err) {
     console.error("FORGOT PASSWORD ERROR:", err);
@@ -411,51 +417,73 @@ const requestPasswordReset = async (req, res) => {
 };
 
 /* =========================================================
-   VERIFY RESET TOKEN
+   VERIFY RESET OTP
 ========================================================= */
-const verifyResetToken = async (req, res) => {
+const verifyResetOtp = async (req, res) => {
   try {
-    const { token } = req.body;
+    const { email, otp } = req.body;
 
-    const record = await PasswordReset.findOne({ token });
+    const record = await PasswordReset.findOne({ email });
 
     if (!record)
-      return res
-        .status(400)
-        .json({ message: "Invalid or expired token" });
+      return res.status(400).json({ message: "Invalid OTP" });
 
     if (record.expiresAt < new Date()) {
-      await PasswordReset.deleteMany({ token });
-      return res.status(400).json({ message: "Reset link expired" });
+      await PasswordReset.deleteMany({ email });
+      return res.status(400).json({ message: "OTP expired" });
     }
 
-    return res.json({ message: "Valid token", email: record.email });
+    const isMatch = await bcrypt.compare(otp, record.otp);
+    if (!isMatch)
+      return res.status(400).json({ message: "Incorrect OTP" });
+
+    // ✅ Mark verified
+    record.verified = true;
+    await record.save();
+
+    return res.json({ message: "OTP verified successfully" });
   } catch (err) {
-    console.error("TOKEN VERIFY ERROR:", err);
+    console.error("VERIFY RESET OTP ERROR:", err);
     res.status(500).json({ message: "Server error" });
   }
 };
 
+
+/* =========================================================
+   VERIFY RESET TOKEN
+========================================================= */
+
 /* =========================================================
    RESET PASSWORD
 ========================================================= */
+/* =========================================================
+   RESET PASSWORD (AFTER OTP)
+========================================================= */
 const resetPassword = async (req, res) => {
   try {
-    const { token, newPassword } = req.body;
+    const { email, newPassword } = req.body;
 
-    const record = await PasswordReset.findOne({ token });
+    if (!email || !newPassword)
+      return res.status(400).json({ message: "Invalid request" });
+
+    const record = await PasswordReset.findOne({ email });
+
     if (!record)
-      return res.status(400).json({ message: "Invalid or expired token" });
+      return res.status(400).json({ message: "OTP verification required" });
 
     if (record.expiresAt < new Date()) {
-      await PasswordReset.deleteMany({ token });
-      return res.status(400).json({ message: "Reset link expired" });
+      await PasswordReset.deleteMany({ email });
+      return res.status(400).json({ message: "OTP expired" });
     }
 
     const hashed = await bcrypt.hash(newPassword, 10);
-    await User.findOneAndUpdate({ email: record.email }, { password: hashed });
 
-    await PasswordReset.deleteMany({ email: record.email });
+    await User.findOneAndUpdate(
+      { email },
+      { password: hashed }
+    );
+
+    await PasswordReset.deleteMany({ email });
 
     return res.json({ message: "Password updated successfully" });
   } catch (err) {
@@ -463,6 +491,7 @@ const resetPassword = async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 };
+
 
 
 
@@ -644,8 +673,8 @@ module.exports = {
   verifyMobileLogin,
   resendMobileOTP,
   requestPasswordReset,
-  verifyResetToken,
   resetPassword,
+  verifyResetOtp,
   googleAuth,
   completeProfile,
   getMe,

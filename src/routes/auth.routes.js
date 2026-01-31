@@ -12,7 +12,7 @@
 
 const express = require("express");
 const protect = require("../middlewares/auth.middleware");
-const { register, verifyOTP, login, resendOTP, loginWithMobile, verifyMobileLogin, resendMobileOTP, requestPasswordReset, verifyResetToken, resetPassword ,getMe,googleAuth,completeProfile } = require("../controllers/auth.controller");
+const { register, verifyOTP, login, resendOTP, loginWithMobile, verifyMobileLogin, resendMobileOTP, requestPasswordReset,verifyResetOtp, resetPassword ,getMe,googleAuth,completeProfile } = require("../controllers/auth.controller");
 
 const router = express.Router();
 
@@ -24,9 +24,13 @@ router.post("/login-mobile", loginWithMobile);
 router.post("/verify-mobile-login", verifyMobileLogin);
 router.post("/resend-mobile-otp", resendMobileOTP);
 router.post("/forgot-password", requestPasswordReset);
-router.post("/verify-reset-token", verifyResetToken);
+// router.post("/verify-reset-token", verifyResetToken);
+router.post("/verify-reset-otp", verifyResetOtp);
 router.post("/reset-password", resetPassword);
+
+router.post("/verify-reset-otp", verifyResetOtp);
 router.get("/me", protect, getMe);
 router.post("/google", googleAuth);
 router.post("/complete-profile", protect, completeProfile);
+
 module.exports = router;
