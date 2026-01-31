@@ -605,17 +605,24 @@ const completeProfile = async (req, res) => {
       }
     }
 
+    const updateData = {
+      mobile,
+      gender,
+      dob,
+      profileCompleted: true,
+    };
+
+    // Only update username IF user actually provided it
+    if (username && username.trim() !== "") {
+      updateData.username = username;
+    }
+
     const user = await User.findByIdAndUpdate(
       userId,
-      {
-        mobile,
-        gender,
-        dob,
-        username,
-        profileCompleted: true,
-      },
+      updateData,
       { new: true }
     );
+
 
     res.json({
       message: "Profile completed successfully",
