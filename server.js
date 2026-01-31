@@ -26,15 +26,42 @@ const corsOptions = {
   allowedHeaders: ["Content-Type", "Authorization"],
 };
 
-app.use(cors(corsOptions));
+/* ================= CORS ================= */
+app.use(
+  cors({
+    origin: function (origin, callback) {
+      // allow requests with no origin (mobile apps, curl, Postman)
+      if (!origin) return callback(null, true);
 
-/* ✅ SAFE OPTIONS HANDLING (NO CRASH) */
-app.use((req, res, next) => {
-  if (req.method === "OPTIONS") {
-    return res.sendStatus(200);
-  }
-  next();
-});
+      const allowedOrigins = [
+        "http://localhost:8081", // Expo web
+        "http://localhost:3000",
+        "https://digiwardrobe.com",
+      ];
+
+      if (allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+    credentials: true,
+  })
+);
+
+/* 🔥 MUST be here */
+app.options("*", cors());
+
+
+// /* ✅ SAFE OPTIONS HANDLING (NO CRASH) */
+// app.use((req, res, next) => {
+//   if (req.method === "OPTIONS") {
+//     return res.sendStatus(200);
+//   }
+//   next();
+// });
 
 /* ================= BODY PARSERS ================= */
 // app.use(express.json());
