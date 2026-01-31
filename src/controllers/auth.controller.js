@@ -8,7 +8,9 @@ const crypto = require("crypto");
 const Wardrobe = require("../models/wardrobe.model");
 const { generateOTP } = require("../services/otp.service");
 const { sendOTP, sendResetMail } = require("../services/mail.service");
+const { OAuth2Client } = require("google-auth-library");
 
+const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 /* =========================================================
    OTP THROTTLE (60 seconds)
 ========================================================= */
@@ -467,21 +469,43 @@ const resetPassword = async (req, res) => {
 /* =========================================================
    GOOGLE SIGNUP / LOGIN
 ========================================================= */
+/* =========================================================
+   GOOGLE SIGNUP / LOGIN (SECURE)
+========================================================= */
 const googleAuth = async (req, res) => {
   try {
-    const { email, name, googleId, photo } = req.body;
+    const { idToken } = req.body;
 
-    if (!email || !googleId) {
-      return res.status(400).json({ message: "Google data incomplete" });
+    if (!idToken) {
+      return res.status(400).json({ message: "ID token required" });
+    }
+
+    // 🔐 Verify token with Google
+    const ticket = await googleClient.verifyIdToken({
+      idToken,
+      audience: process.env.GOOGLE_CLIENT_ID,
+    });
+
+    const payload = ticket.getPayload();
+
+    const {
+      email,
+      name,
+      picture,
+      sub: googleId,
+      email_verified,
+    } = payload;
+
+    if (!email_verified) {
+      return res.status(400).json({ message: "Google email not verified" });
     }
 
     let user = await User.findOne({ email });
 
     // -----------------------------
-    // EXISTING USER → LOGIN
+    // EXISTING USER
     // -----------------------------
     if (user) {
-      // Prevent normal users from logging in via Google accidentally
       if (user.authProvider && user.authProvider !== "google") {
         return res.status(400).json({
           message: "This email is registered using password login",
@@ -490,17 +514,27 @@ const googleAuth = async (req, res) => {
     }
 
     // -----------------------------
-    // NEW USER → SIGN UP
+    // NEW USER → AUTO CREATE
     // -----------------------------
     if (!user) {
+      const baseUsername = name.replace(/\s+/g, "").toLowerCase();
+      const uniqueUsername = `${baseUsername}_${Math.floor(Math.random() * 10000)}`;
+
       user = await User.create({
-        username: name,
+        username: uniqueUsername,
         email,
         googleId,
-        photo,
+        photo: picture,
         authProvider: "google",
-        isVerified: true, // Google already verified email
+        isVerified: true,
         profileCompleted: false,
+      });
+
+
+      // OPTIONAL: create wardrobe
+      await Wardrobe.create({
+        user: user._id,
+        name: `${name}'s Wardrobe`,
       });
     }
 
@@ -527,9 +561,10 @@ const googleAuth = async (req, res) => {
     });
   } catch (err) {
     console.error("GOOGLE AUTH ERROR:", err);
-    res.status(500).json({ message: "Server error" });
+    res.status(401).json({ message: "Invalid Google token" });
   }
 };
+
 
 const getMe = async (req, res) => {
   try {
