@@ -28,7 +28,7 @@ router.post("/forgot-password", requestPasswordReset);
 router.post("/verify-reset-otp", verifyResetOtp);
 router.post("/reset-password", resetPassword);
 
-router.post("/verify-reset-otp", verifyResetOtp);
+// router.post("/verify-reset-otp", verifyResetOtp);
 router.get("/me", protect, getMe);
 router.post("/google", googleAuth);
 router.post("/complete-profile", protect, completeProfile);
