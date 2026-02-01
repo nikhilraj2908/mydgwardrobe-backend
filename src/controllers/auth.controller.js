@@ -466,7 +466,8 @@ const resetPassword = async (req, res) => {
     if (!email || !newPassword)
       return res.status(400).json({ message: "Invalid request" });
 
-    const record = await PasswordReset.findOne({ email });
+    const record = await PasswordReset.findOne({ email, verified: true });
+
 
     if (!record)
       return res.status(400).json({ message: "OTP verification required" });
