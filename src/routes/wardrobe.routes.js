@@ -22,7 +22,8 @@ const {
   updateWardrobeItem,
   moveWardrobeItem,
   moveWardrobeItemsBulk,
-  updateItemAccessLevel
+  updateItemAccessLevel,
+  getItemsByCategory 
 } = require("../controllers/wardrobe.controller");
 
 const { getExploreItems } = require("../controllers/explore.controller");
@@ -148,6 +149,7 @@ router.patch(
   auth,
   updateItemAccessLevel
 );
+router.get("/category/:categoryId", getItemsByCategory);
 
 
 module.exports = router;

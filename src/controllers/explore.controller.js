@@ -6,22 +6,15 @@ const Wardrobe = require("../models/wardrobe.model");
 ====================================================== */
 exports.getExploreItems = async (req, res) => {
   try {
-    const {
-      category,
-      search,
-      sort = "newest",
-      page = 1,
-      limit = 20,
-    } = req.query;
+    const { category, search, sort = "newest", page = 1, limit = 20 } = req.query;
 
-    // 🔒 CORE SECURITY FILTER
     const filter = {
       visibility: "public",
-      accessLevel: "normal", // ✅ THIS IS THE FIX
+      accessLevel: "normal",
     };
 
     if (category && category !== "All") {
-      filter.category = category;
+      filter.category = category; // categoryId
     }
 
     if (search) {
@@ -30,69 +23,34 @@ exports.getExploreItems = async (req, res) => {
       }).select("_id");
 
       filter.$or = [
-        { category: { $regex: search, $options: "i" } },
         { brand: { $regex: search, $options: "i" } },
         { wardrobe: { $in: wardrobes.map(w => w._id) } },
       ];
     }
 
-    /* ================= SORT MAPPING ================= */
     let sortQuery = { createdAt: -1 };
+    if (sort === "price-high") sortQuery = { price: -1 };
+    if (sort === "price-low") sortQuery = { price: 1 };
 
-    switch (sort) {
-      case "price-high":
-        sortQuery = { price: -1 };
-        break;
-      case "price-low":
-        sortQuery = { price: 1 };
-        break;
-      case "popular":
-        sortQuery = { likes: -1 };
-        break;
-      case "newest":
-      default:
-        sortQuery = { createdAt: -1 };
-    }
-
-    const skip = (Number(page) - 1) * Number(limit);
+    const skip = (page - 1) * limit;
 
     const [items, total] = await Promise.all([
       WardrobeItem.find(filter)
         .populate("wardrobe", "name")
+        .populate("category", "name type") // 🔥 FIX
         .sort(sortQuery)
         .skip(skip)
         .limit(Number(limit))
-        .select("images imageUrl category brand price wardrobe createdAt")
+        .select("images category brand price wardrobe createdAt")
         .lean(),
 
       WardrobeItem.countDocuments(filter),
     ]);
 
-    /* ================= IMAGE NORMALIZATION ================= */
-    const normalized = items.map(item => {
-      let images = [];
-
-      if (Array.isArray(item.images) && item.images.length > 0) {
-        images = item.images;
-      } else if (item.imageUrl) {
-        images = [item.imageUrl];
-      }
-
-      images = images.map(p => p.replace(/\\/g, "/"));
-
-      return {
-        ...item,
-        images,
-        imageUrl: undefined,
-      };
-    });
-
-    res.json({
-      items: normalized,
-      total,
-    });
+    res.json({ items, total });
   } catch (error) {
-    console.error("EXPLORE CONTROLLER ERROR:", error);
+    console.error("EXPLORE ERROR:", error);
     res.status(500).json({ message: "Server error" });
   }
 };
+

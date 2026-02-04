@@ -940,6 +940,32 @@ const updateItemAccessLevel = async (req, res) => {
     res.status(500).json({ message: "Something went wrong" });
   }
 };
+/* ======================================================
+   GET ITEMS BY CATEGORY (FOR EXPLORE)
+====================================================== */
+const getItemsByCategory = async (req, res) => {
+  try {
+    const { categoryId } = req.params;
+
+    if (!categoryId) {
+      return res.status(400).json({ message: "categoryId is required" });
+    }
+
+    const items = await WardrobeItem.find({
+      category: categoryId,          // ✅ ID BASED
+      visibility: "public",
+      accessLevel: { $ne: "premium" }
+    })
+      .populate("wardrobe", "name color")
+      .populate("user", "username")
+      .sort({ createdAt: -1 });
+
+    res.json({ items });
+  } catch (err) {
+    console.error("GET ITEMS BY CATEGORY ERROR:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
 
 
 
@@ -961,5 +987,6 @@ module.exports = {
   updateWardrobeItem,
   moveWardrobeItem,
   moveWardrobeItemsBulk,
-  updateItemAccessLevel
+  updateItemAccessLevel,
+  getItemsByCategory
 };
