@@ -76,18 +76,18 @@ const addWardrobeItem = async (req, res) => {
         message: "Category and wardrobe are required",
       });
     }
-if (!categoryType) {
-  return res.status(400).json({
-    message: "categoryType is required",
-  });
-}
+    if (!categoryType) {
+      return res.status(400).json({
+        message: "categoryType is required",
+      });
+    }
 
-const allowedCategoryTypes = ["mens", "womens", "unisex"];
-if (!allowedCategoryTypes.includes(categoryType)) {
-  return res.status(400).json({
-    message: "Invalid categoryType",
-  });
-}
+    const allowedCategoryTypes = ["mens", "womens", "unisex"];
+    if (!allowedCategoryTypes.includes(categoryType)) {
+      return res.status(400).json({
+        message: "Invalid categoryType",
+      });
+    }
 
     /* ===============================
        1️⃣ FIND OR CREATE WARDROBE
@@ -121,18 +121,18 @@ if (!allowedCategoryTypes.includes(categoryType)) {
     /* ===============================
        2️⃣ CREATE WARDROBE ITEM
        =============================== */
-   const item = await WardrobeItem.create({
-  user: req.user._id,
-  wardrobe: wardrobeDoc._id,
-  images: imagePaths,
-  category,
-  categoryType, // 🔥 REQUIRED FIX
-  price,
-  brand,
-  description: description || "",
-  visibility: finalVisibility,
-  accessLevel: finalAccessLevel,
-});
+    const item = await WardrobeItem.create({
+      user: req.user._id,
+      wardrobe: wardrobeDoc._id,
+      images: imagePaths,
+      category,
+      categoryType, // 🔥 REQUIRED FIX
+      price,
+      brand,
+      description: description || "",
+      visibility: finalVisibility,
+      accessLevel: finalAccessLevel,
+    });
 
 
 
@@ -178,8 +178,9 @@ const getMyWardrobeItems = async (req, res) => {
     const userId = req.user._id;
 
     const items = await WardrobeItem.find({ user: userId })
+      .populate("category", "name type")
+      .populate("wardrobe", "name")
       .sort({ createdAt: -1 });
-
     res.json(items);
   } catch (err) {
     console.error("GET WARDROBE ERROR:", err);
@@ -291,7 +292,11 @@ const getWardrobePublicItems = async (req, res) => {
     const items = await WardrobeItem.find({
       wardrobe: wardrobe._id,
       visibility: "public",
-    }).lean();
+    })
+      .populate("category", "name type")
+      .populate("wardrobe", "name")
+      .lean();
+
 
     res.json({ wardrobe, items });
   } catch (err) {
@@ -350,6 +355,7 @@ const getSingleWardrobeItem = async (req, res) => {
     const { id } = req.params;
     const item = await WardrobeItem.findById(id)
       .populate("user", "username photo")
+      .populate("category", "name type")
       .populate("wardrobe", "name")
       .lean();
     if (!item) {
@@ -390,8 +396,9 @@ const getWardrobeItemsByWardrobe = async (req, res) => {
     };
 
 
-    // 4️⃣ Fetch items
     const items = await WardrobeItem.find(filter)
+      .populate("category", "name type")
+      .populate("wardrobe", "name")
       .sort({ createdAt: -1 });
 
     res.json(items);
@@ -421,8 +428,10 @@ const getPublicUserItems = async (req, res) => {
 
 
     const items = await WardrobeItem.find(filter)
+      .populate("category", "name type")
       .populate("wardrobe", "name color")
       .sort({ createdAt: -1 });
+
 
     res.json({ items });
   } catch (err) {
@@ -671,7 +680,7 @@ const updateWardrobeItem = async (req, res) => {
       description,
       visibility,
       price,
-       accessLevel,
+      accessLevel,
     } = req.body;
 
     const item = await WardrobeItem.findById(itemId);
@@ -727,12 +736,12 @@ const updateWardrobeItem = async (req, res) => {
     if (description !== undefined) item.description = description;
     if (visibility !== undefined) item.visibility = visibility;
     if (price !== undefined) item.price = Number(price);
-if (accessLevel !== undefined) {
-  if (!["normal", "premium"].includes(accessLevel)) {
-    return res.status(400).json({ message: "Invalid access level" });
-  }
-  item.accessLevel = accessLevel;
-}
+    if (accessLevel !== undefined) {
+      if (!["normal", "premium"].includes(accessLevel)) {
+        return res.status(400).json({ message: "Invalid access level" });
+      }
+      item.accessLevel = accessLevel;
+    }
     await item.save();
 
     res.json({
