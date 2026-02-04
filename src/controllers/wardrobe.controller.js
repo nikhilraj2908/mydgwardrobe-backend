@@ -67,7 +67,8 @@ const addWardrobeItem = async (req, res) => {
     const imagePaths = req.files.map(file => file.key);
 
 
-    const { category, wardrobe, brand, visibility, description } = req.body;
+    const { category, categoryType, wardrobe, brand, visibility, description } = req.body;
+
     const price = Number(req.body.price || 0);
 
     if (!category || !wardrobe) {
@@ -75,6 +76,18 @@ const addWardrobeItem = async (req, res) => {
         message: "Category and wardrobe are required",
       });
     }
+if (!categoryType) {
+  return res.status(400).json({
+    message: "categoryType is required",
+  });
+}
+
+const allowedCategoryTypes = ["mens", "womens", "unisex"];
+if (!allowedCategoryTypes.includes(categoryType)) {
+  return res.status(400).json({
+    message: "Invalid categoryType",
+  });
+}
 
     /* ===============================
        1️⃣ FIND OR CREATE WARDROBE
@@ -108,17 +121,19 @@ const addWardrobeItem = async (req, res) => {
     /* ===============================
        2️⃣ CREATE WARDROBE ITEM
        =============================== */
-    const item = await WardrobeItem.create({
-      user: req.user._id,
-      wardrobe: wardrobeDoc._id,
-      images: imagePaths,
-      category,
-      price,
-      brand,
-      description: description || "",
-      visibility: finalVisibility,
-      accessLevel: finalAccessLevel,
-    });
+   const item = await WardrobeItem.create({
+  user: req.user._id,
+  wardrobe: wardrobeDoc._id,
+  images: imagePaths,
+  category,
+  categoryType, // 🔥 REQUIRED FIX
+  price,
+  brand,
+  description: description || "",
+  visibility: finalVisibility,
+  accessLevel: finalAccessLevel,
+});
+
 
 
     /* ===============================
