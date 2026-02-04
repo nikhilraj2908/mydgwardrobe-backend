@@ -66,10 +66,21 @@ const addWardrobeItem = async (req, res) => {
     }
     const imagePaths = req.files.map(file => file.key);
 
+    const { category, categoryType, gender, wardrobe, brand, visibility, description } = req.body;
 
-    const { category, categoryType, wardrobe, brand, visibility, description } = req.body;
 
     const price = Number(req.body.price || 0);
+
+
+
+    if (!gender) {
+      return res.status(400).json({ message: "gender is required" });
+    }
+
+    const allowedGenders = ["mens", "womens", "unisex"];
+    if (!allowedGenders.includes(gender)) {
+      return res.status(400).json({ message: "Invalid gender" });
+    }
 
     if (!category || !wardrobe) {
       return res.status(400).json({
@@ -128,6 +139,7 @@ const addWardrobeItem = async (req, res) => {
       category,
       categoryType, // 🔥 REQUIRED FIX
       price,
+      gender,
       brand,
       description: description || "",
       visibility: finalVisibility,
@@ -955,16 +967,23 @@ const updateItemAccessLevel = async (req, res) => {
 const getItemsByCategory = async (req, res) => {
   try {
     const { categoryId } = req.params;
-
+    const { gender } = req.query;
     if (!categoryId) {
       return res.status(400).json({ message: "categoryId is required" });
     }
 
-    const items = await WardrobeItem.find({
-      category: categoryId,          // ✅ ID BASED
+
+    const filter = {
+      category: categoryId,
       visibility: "public",
-      accessLevel: { $ne: "premium" }
-    })
+      accessLevel: { $ne: "premium" },
+    };
+
+    if (gender && gender !== "unisex") {
+      filter.gender = { $in: [gender, "unisex"] };
+    }
+
+    const items = await WardrobeItem.find(filter)
       .populate("wardrobe", "name color")
       .populate("user", "username")
       .sort({ createdAt: -1 });

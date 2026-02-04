@@ -69,6 +69,11 @@ const wardrobeItemSchema = new mongoose.Schema(
       default: "normal",
       index: true,
     },
+    gender: {
+      type: String,
+      enum: ["mens", "womens", "unisex"],
+      required: true,
+    },
   },
   { timestamps: true }
 );
