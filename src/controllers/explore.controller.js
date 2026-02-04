@@ -6,42 +6,41 @@ const Category = require("../models/category.model");
 ====================================================== */
 exports.getExploreItems = async (req, res) => {
   try {
-    const { category, search, sort = "newest", page = 1, limit = 20 ,gender} = req.query;
+    const { category, search, sort = "newest", page = 1, limit = 20, gender } = req.query;
 
-   const filter = {
-  visibility: "public",
-  accessLevel: "normal",
-};
+    const filter = {
+      visibility: "public",
+      accessLevel: "normal",
+    };
 
-if (category && category !== "All") {
-  filter.category = category;
-}
+    if (category && category !== "All") {
+      filter.category = category;
+    }
 
-if (gender && gender !== "unisex") {
-  filter.gender = { $in: [gender, "unisex"] };
-}
+    if (gender) {
+      filter.gender = gender;
+    }
 
-    
 
     if (category && category !== "All") {
       filter.category = category; // categoryId
     }
 
     if (search) {
-  const wardrobes = await Wardrobe.find({
-    name: { $regex: search, $options: "i" },
-  }).select("_id");
+      const wardrobes = await Wardrobe.find({
+        name: { $regex: search, $options: "i" },
+      }).select("_id");
 
-  const categories = await Category.find({
-    name: { $regex: search, $options: "i" },
-  }).select("_id");
+      const categories = await Category.find({
+        name: { $regex: search, $options: "i" },
+      }).select("_id");
 
-  filter.$or = [
-    { brand: { $regex: search, $options: "i" } },
-    { wardrobe: { $in: wardrobes.map(w => w._id) } },
-    { category: { $in: categories.map(c => c._id) } }, // 🔥 FIX
-  ];
-}
+      filter.$or = [
+        { brand: { $regex: search, $options: "i" } },
+        { wardrobe: { $in: wardrobes.map(w => w._id) } },
+        { category: { $in: categories.map(c => c._id) } }, // 🔥 FIX
+      ];
+    }
 
 
     let sortQuery = { createdAt: -1 };
