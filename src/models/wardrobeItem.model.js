@@ -1,4 +1,5 @@
 const mongoose = require("mongoose");
+
 const wardrobeItemSchema = new mongoose.Schema(
   {
     user: {
@@ -8,18 +9,24 @@ const wardrobeItemSchema = new mongoose.Schema(
       index: true,
     },
 
-    // 🔥 MULTIPLE IMAGES (used everywhere)
     images: {
       type: [String],
       required: true,
-      validate: [
-        arr => arr.length > 0,
-        "At least one image is required",
-      ],
+      validate: [(arr) => arr.length > 0, "At least one image is required"],
     },
 
+    // ✅ FIX 1: store category as ObjectId
     category: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Category",
+      required: true,
+      index: true,
+    },
+
+    // ✅ FIX 2: explicitly store category type
+    categoryType: {
       type: String,
+      enum: ["mens", "womens", "unisex"],
       required: true,
       index: true,
     },
@@ -55,6 +62,7 @@ const wardrobeItemSchema = new mongoose.Schema(
       default: "private",
       index: true,
     },
+
     accessLevel: {
       type: String,
       enum: ["normal", "premium"],
@@ -62,8 +70,6 @@ const wardrobeItemSchema = new mongoose.Schema(
       index: true,
     },
   },
-
-
   { timestamps: true }
 );
 

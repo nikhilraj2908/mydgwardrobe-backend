@@ -6,10 +6,12 @@ const controller = require("../controllers/category.controller");
 
 const {getAllCategories,
     createCategory,
-    deleteCategory
+    deleteCategory,
+    getUserCategories
 }=require("../controllers/category.controller");
 
 router.get("/",getAllCategories);
+router.get("/user", auth, getUserCategories);
 router.post("/",auth,createCategory);
 
 router.post(

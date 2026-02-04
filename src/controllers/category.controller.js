@@ -6,7 +6,7 @@ const { uploadToS3, deleteFromS3 } = require("../utils/s3");
 ============================ */
 exports.getAllCategories = async (req, res) => {
   try {
-    const categories = await Category.find({ isActive: true })
+    const categories = await Category.find({ isActive: true, scope: "explore" })
       .sort({ name: 1 })
       .lean();
 
@@ -33,6 +33,8 @@ exports.createCategory = async (req, res) => {
     const exists = await Category.findOne({
       name: name.trim(),
       type,
+      createdBy: req.user._id,
+      isActive: true,
     });
 
     if (exists) {
@@ -44,6 +46,8 @@ exports.createCategory = async (req, res) => {
     const category = await Category.create({
       name: name.trim(),
       type,
+      createdBy: req.user._id,
+      scope: "user", // 🔒 never explore
     });
 
     res.status(201).json({
@@ -109,7 +113,9 @@ exports.deleteCategory = async (req, res) => {
     if (!category) {
       return res.status(404).json({ message: "Category not found" });
     }
-
+    if (!category.createdBy.equals(req.user._id)) {
+      return res.status(403).json({ message: "Not allowed to delete this category" });
+    }
     category.isActive = false;
     await category.save();
 
@@ -117,5 +123,21 @@ exports.deleteCategory = async (req, res) => {
   } catch (err) {
     console.error("DELETE CATEGORY ERROR:", err);
     res.status(500).json({ message: "Failed to delete category" });
+  }
+};
+exports.getUserCategories = async (req, res) => {
+  try {
+    const categories = await Category.find({
+      isActive: true,
+      scope: "user",
+      createdBy: req.user._id,
+    })
+      .sort({ createdAt: -1 })
+      .lean();
+
+    res.json(categories);
+  } catch (err) {
+    console.error("GET USER CATEGORIES ERROR:", err);
+    res.status(500).json({ message: "Failed to fetch user categories" });
   }
 };
