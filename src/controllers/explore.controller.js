@@ -4,9 +4,7 @@ const Category = require("../models/category.model");
 /* ======================================================
    EXPLORE – GET ALL PUBLIC (NON-PREMIUM) ITEMS ONLY
 ====================================================== */
-/* ======================================================
-   EXPLORE – GET ALL PUBLIC (NON-PREMIUM) ITEMS ONLY
-====================================================== */
+
 exports.getExploreItems = async (req, res) => {
   try {
     const { category, search, sort = "newest", page = 1, limit = 20, gender } = req.query;
@@ -42,9 +40,11 @@ exports.getExploreItems = async (req, res) => {
 
       filter.$or = [
         { brand: { $regex: search, $options: "i" } },
+        { description: { $regex: search, $options: "i" } }, // ✅ ADD
         { wardrobe: { $in: wardrobes.map(w => w._id) } },
         { category: { $in: categories.map(c => c._id) } },
       ];
+
     }
 
     let sortQuery = { createdAt: -1 };
