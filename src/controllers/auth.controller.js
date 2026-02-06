@@ -504,37 +504,134 @@ const resetPassword = async (req, res) => {
 /* =========================================================
    GOOGLE SIGNUP / LOGIN (SECURE)
 ========================================================= */
-const googleAuth = async (req, res) => {
-    try {
-    const { idToken } = req.body;
+// const googleAuth = async (req, res) => {
+//     try {
+//     const { idToken } = req.body;
 
-    if (!idToken) {
-      return res.status(400).json({ message: "ID token required" });
-    }
+//     if (!idToken) {
+//       return res.status(400).json({ message: "ID token required" });
+//     }
 
-    // Verify token
-   const ticket = await googleClient.verifyIdToken({
-  idToken,
-  audience: [
-    process.env.GOOGLE_WEB_CLIENT_ID,
-    process.env.GOOGLE_ANDROID_CLIENT_ID,
-  ],
-});
+//     // Verify token
+//    const ticket = await googleClient.verifyIdToken({
+//   idToken,
+//   audience: [
+//     process.env.GOOGLE_WEB_CLIENT_ID,
+//     process.env.GOOGLE_ANDROID_CLIENT_ID,
+//   ],
+// });
 
 
-    const payload = ticket.getPayload();
+//     const payload = ticket.getPayload();
     
-    // Make sure to check if email is verified
-    if (!payload.email_verified) {
-      return res.status(400).json({ message: "Email not verified with Google" });
+//     // Make sure to check if email is verified
+//     if (!payload.email_verified) {
+//       return res.status(400).json({ message: "Email not verified with Google" });
+//     }
+//     const {
+//       email,
+//       name,
+//       picture,
+//       sub: googleId,
+//       email_verified,
+//     } = payload;
+
+//     if (!email_verified) {
+//       return res.status(400).json({ message: "Google email not verified" });
+//     }
+
+//     let user = await User.findOne({ email });
+
+//     // -----------------------------
+//     // EXISTING USER
+//     // -----------------------------
+//     if (user) {
+//       if (user.authProvider && user.authProvider !== "google") {
+//         return res.status(400).json({
+//           message: "This email is registered using password login",
+//         });
+//       }
+//     }
+
+//     // -----------------------------
+//     // NEW USER → AUTO CREATE
+//     // -----------------------------
+//     if (!user) {
+//       const baseUsername = name.replace(/\s+/g, "").toLowerCase();
+//       const uniqueUsername = `${baseUsername}_${Math.floor(Math.random() * 10000)}`;
+
+//       user = await User.create({
+//         username: uniqueUsername,
+//         email,
+//         googleId,
+//         photo: picture,
+//         authProvider: "google",
+//         isVerified: true,
+//         profileCompleted: false,
+//       });
+
+
+//       // OPTIONAL: create wardrobe
+//       await Wardrobe.create({
+//         user: user._id,
+//         name: `${name}'s Wardrobe`,
+//       });
+//     }
+
+//     // -----------------------------
+//     // JWT TOKEN
+//     // -----------------------------
+//     const token = jwt.sign(
+//       { id: user._id, role: user.role },
+//       process.env.JWT_SECRET,
+//       { expiresIn: "7d" }
+//     );
+
+//     return res.json({
+//       message: "Google login successful",
+//       token,
+//       user: {
+//         id: user._id,
+//         username: user.username,
+//         email: user.email,
+//         role: user.role,
+//         photo: user.photo,
+//         profileCompleted: user.profileCompleted,
+//       },
+//     });
+//   } catch (err) {
+//     console.error("GOOGLE AUTH ERROR:", err);
+//     res.status(401).json({ message: "Invalid Google token" });
+//   }
+// };
+
+const axios = require("axios");
+
+const googleAuth = async (req, res) => {
+  try {
+    const { accessToken } = req.body;
+
+    if (!accessToken) {
+      return res.status(400).json({ message: "Access token required" });
     }
+
+    // 🔹 Fetch user info from Google
+    const googleRes = await axios.get(
+      "https://www.googleapis.com/oauth2/v3/userinfo",
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      }
+    );
+
     const {
       email,
       name,
       picture,
-      sub: googleId,
       email_verified,
-    } = payload;
+      sub: googleId,
+    } = googleRes.data;
 
     if (!email_verified) {
       return res.status(400).json({ message: "Google email not verified" });
@@ -542,20 +639,12 @@ const googleAuth = async (req, res) => {
 
     let user = await User.findOne({ email });
 
-    // -----------------------------
-    // EXISTING USER
-    // -----------------------------
-    if (user) {
-      if (user.authProvider && user.authProvider !== "google") {
-        return res.status(400).json({
-          message: "This email is registered using password login",
-        });
-      }
+    if (user && user.authProvider && user.authProvider !== "google") {
+      return res.status(400).json({
+        message: "This email is registered with password login",
+      });
     }
 
-    // -----------------------------
-    // NEW USER → AUTO CREATE
-    // -----------------------------
     if (!user) {
       const baseUsername = name.replace(/\s+/g, "").toLowerCase();
       const uniqueUsername = `${baseUsername}_${Math.floor(Math.random() * 10000)}`;
@@ -570,17 +659,12 @@ const googleAuth = async (req, res) => {
         profileCompleted: false,
       });
 
-
-      // OPTIONAL: create wardrobe
       await Wardrobe.create({
         user: user._id,
         name: `${name}'s Wardrobe`,
       });
     }
 
-    // -----------------------------
-    // JWT TOKEN
-    // -----------------------------
     const token = jwt.sign(
       { id: user._id, role: user.role },
       process.env.JWT_SECRET,
@@ -600,11 +684,10 @@ const googleAuth = async (req, res) => {
       },
     });
   } catch (err) {
-    console.error("GOOGLE AUTH ERROR:", err);
-    res.status(401).json({ message: "Invalid Google token" });
+    console.error("GOOGLE AUTH ERROR:", err.response?.data || err.message);
+    res.status(401).json({ message: "Invalid Google access token" });
   }
 };
-
 
 const getMe = async (req, res) => {
   try {
