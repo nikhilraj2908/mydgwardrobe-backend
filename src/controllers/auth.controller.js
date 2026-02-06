@@ -11,7 +11,10 @@ const { sendOTP, sendResetMail } = require("../services/mail.service");
 const { OAuth2Client } = require("google-auth-library");
 
 // const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
-const googleClient = new OAuth2Client();
+const googleClient = new OAuth2Client(
+  process.env.GOOGLE_WEB_CLIENT_ID,
+  process.env.GOOGLE_WEB_CLIENT_SECRET
+);
 /* =========================================================
    OTP THROTTLE (60 seconds)
 ========================================================= */
@@ -504,26 +507,29 @@ const resetPassword = async (req, res) => {
    GOOGLE SIGNUP / LOGIN (SECURE)
 ========================================================= */
 const googleAuth = async (req, res) => {
-  try {
+    try {
     const { idToken } = req.body;
 
     if (!idToken) {
       return res.status(400).json({ message: "ID token required" });
     }
 
-    // 🔐 Verify token with Google
- const ticket = await googleClient.verifyIdToken({
-  idToken,
-  audience: [
-    process.env.GOOGLE_WEB_CLIENT_ID,
-    process.env.GOOGLE_ANDROID_CLIENT_ID,
-    process.env.GOOGLE_EXPO_CLIENT_ID, // 🔥 REQUIRED
-    // process.env.GOOGLE_IOS_CLIENT_ID (optional)
-  ],
-});
+    // Verify token
+    const ticket = await googleClient.verifyIdToken({
+      idToken,
+      audience: [
+        process.env.GOOGLE_WEB_CLIENT_ID,
+        process.env.GOOGLE_ANDROID_CLIENT_ID,
+        process.env.GOOGLE_IOS_CLIENT_ID,
+      ],
+    });
 
     const payload = ticket.getPayload();
-
+    
+    // Make sure to check if email is verified
+    if (!payload.email_verified) {
+      return res.status(400).json({ message: "Email not verified with Google" });
+    }
     const {
       email,
       name,
