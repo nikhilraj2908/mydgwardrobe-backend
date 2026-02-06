@@ -11,10 +11,8 @@ const { sendOTP, sendResetMail } = require("../services/mail.service");
 const { OAuth2Client } = require("google-auth-library");
 
 // const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
-const googleClient = new OAuth2Client(
-  process.env.GOOGLE_WEB_CLIENT_ID,
-  process.env.GOOGLE_WEB_CLIENT_SECRET
-);
+const googleClient = new OAuth2Client();
+
 /* =========================================================
    OTP THROTTLE (60 seconds)
 ========================================================= */
@@ -516,13 +514,9 @@ const googleAuth = async (req, res) => {
 
     // Verify token
     const ticket = await googleClient.verifyIdToken({
-      idToken,
-      audience: [
-        process.env.GOOGLE_WEB_CLIENT_ID,
-        process.env.GOOGLE_ANDROID_CLIENT_ID,
-        process.env.GOOGLE_IOS_CLIENT_ID,
-      ],
-    });
+  idToken,
+  
+});
 
     const payload = ticket.getPayload();
     
