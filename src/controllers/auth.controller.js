@@ -1,7 +1,7 @@
 const User = require("../models/user.model");
 const OTP = require("../models/otp.model");
 const PasswordReset = require("../models/passwordResetToken.model");
-
+const jwksClient = require("jwks-rsa");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
@@ -9,6 +9,17 @@ const Wardrobe = require("../models/wardrobe.model");
 const { generateOTP } = require("../services/otp.service");
 const { sendOTP, sendResetMail } = require("../services/mail.service");
 const { OAuth2Client } = require("google-auth-library");
+const client = jwksClient({
+  jwksUri: `https://${process.env.AUTH0_DOMAIN}/.well-known/jwks.json`,
+});
+
+
+function getKey(header, callback) {
+  client.getSigningKey(header.kid, function (err, key) {
+    const signingKey = key.getPublicKey();
+    callback(null, signingKey);
+  });
+}
 
 // const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 const googleClient = new OAuth2Client();
@@ -609,83 +620,64 @@ const axios = require("axios");
 
 const googleAuth = async (req, res) => {
   try {
-    const { accessToken } = req.body;
+    const { idToken } = req.body;
 
-    if (!accessToken) {
-      return res.status(400).json({ message: "Access token required" });
+    if (!idToken) {
+      return res.status(400).json({ message: "ID token required" });
     }
 
-    // 🔹 Fetch user info from Google
-    const googleRes = await axios.get(
-      "https://www.googleapis.com/oauth2/v3/userinfo",
+    jwt.verify(
+      idToken,
+      getKey,
       {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
+        audience: process.env.AUTH0_CLIENT_ID,
+        issuer: `https://${process.env.AUTH0_DOMAIN}/`,
+        algorithms: ["RS256"],
+      },
+      async (err, decoded) => {
+        if (err) {
+          return res.status(401).json({ message: "Invalid Auth0 token" });
+        }
+
+        const { email, name, picture, sub } = decoded;
+
+        let user = await User.findOne({ email });
+
+        if (!user) {
+          const baseUsername = name.replace(/\s+/g, "").toLowerCase();
+          const uniqueUsername = `${baseUsername}_${Math.floor(Math.random() * 10000)}`;
+
+          user = await User.create({
+            username: uniqueUsername,
+            email,
+            authProvider: "google",
+            photo: picture,
+            isVerified: true,
+            profileCompleted: false,
+          });
+
+          await Wardrobe.create({
+            user: user._id,
+            name: `${name}'s Wardrobe`,
+          });
+        }
+
+        const token = jwt.sign(
+          { id: user._id, role: user.role },
+          process.env.JWT_SECRET,
+          { expiresIn: "7d" }
+        );
+
+        return res.json({
+          message: "Login successful",
+          token,
+          user,
+        });
       }
     );
-
-    const {
-      email,
-      name,
-      picture,
-      email_verified,
-      sub: googleId,
-    } = googleRes.data;
-
-    if (!email_verified) {
-      return res.status(400).json({ message: "Google email not verified" });
-    }
-
-    let user = await User.findOne({ email });
-
-    if (user && user.authProvider && user.authProvider !== "google") {
-      return res.status(400).json({
-        message: "This email is registered with password login",
-      });
-    }
-
-    if (!user) {
-      const baseUsername = name.replace(/\s+/g, "").toLowerCase();
-      const uniqueUsername = `${baseUsername}_${Math.floor(Math.random() * 10000)}`;
-
-      user = await User.create({
-        username: uniqueUsername,
-        email,
-        googleId,
-        photo: picture,
-        authProvider: "google",
-        isVerified: true,
-        profileCompleted: false,
-      });
-
-      await Wardrobe.create({
-        user: user._id,
-        name: `${name}'s Wardrobe`,
-      });
-    }
-
-    const token = jwt.sign(
-      { id: user._id, role: user.role },
-      process.env.JWT_SECRET,
-      { expiresIn: "7d" }
-    );
-
-    return res.json({
-      message: "Google login successful",
-      token,
-      user: {
-        id: user._id,
-        username: user.username,
-        email: user.email,
-        role: user.role,
-        photo: user.photo,
-        profileCompleted: user.profileCompleted,
-      },
-    });
   } catch (err) {
-    console.error("GOOGLE AUTH ERROR:", err.response?.data || err.message);
-    res.status(401).json({ message: "Invalid Google access token" });
+    console.error("AUTH0 LOGIN ERROR:", err);
+    res.status(500).json({ message: "Server error" });
   }
 };
 
