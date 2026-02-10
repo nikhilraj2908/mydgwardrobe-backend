@@ -11,11 +11,20 @@ const { sendOTP, sendResetMail } = require("../services/mail.service");
 const { OAuth2Client } = require("google-auth-library");
 const client = jwksClient({
   jwksUri: `https://${process.env.AUTH0_DOMAIN}/.well-known/jwks.json`,
+  timeout: 5000,          // 🔥 prevents 504
+  cache: true,            // 🔥 reuse keys
+  cacheMaxEntries: 5,
+  cacheMaxAge: 10 * 60 * 1000,
 });
 
 
 function getKey(header, callback) {
   client.getSigningKey(header.kid, function (err, key) {
+    if (err) {
+      console.error("JWKS ERROR:", err);
+      return callback(err);
+    }
+
     const signingKey = key.getPublicKey();
     callback(null, signingKey);
   });
@@ -621,7 +630,6 @@ const axios = require("axios");
 const googleAuth = async (req, res) => {
   try {
     const { idToken } = req.body;
-
     if (!idToken) {
       return res.status(400).json({ message: "ID token required" });
     }
@@ -636,10 +644,11 @@ const googleAuth = async (req, res) => {
       },
       async (err, decoded) => {
         if (err) {
+          console.error("JWT VERIFY ERROR:", err);
           return res.status(401).json({ message: "Invalid Auth0 token" });
         }
 
-        const { email, name, picture, sub } = decoded;
+        const { email, name, picture } = decoded;
 
         let user = await User.findOne({ email });
 
@@ -671,7 +680,14 @@ const googleAuth = async (req, res) => {
         return res.json({
           message: "Login successful",
           token,
-          user,
+          user: {
+            id: user._id,
+            email: user.email,
+            username: user.username,
+            photo: user.photo,
+            profileCompleted: user.profileCompleted,
+            role: user.role,
+          },
         });
       }
     );
@@ -680,6 +696,7 @@ const googleAuth = async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 };
+
 
 const getMe = async (req, res) => {
   try {
