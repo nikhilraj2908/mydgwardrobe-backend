@@ -649,6 +649,7 @@ const googleAuth = async (req, res) => {
         }
 
         const { email, name, picture } = decoded;
+        console.log("✅ Decoded user info:", decoded);  // Debugging: Check decoded token
 
         let user = await User.findOne({ email });
 
@@ -662,7 +663,7 @@ const googleAuth = async (req, res) => {
             authProvider: "google",
             photo: picture,
             isVerified: true,
-            profileCompleted: false,
+            profileCompleted: false,  // Initially, profileCompleted is false
           });
 
           await Wardrobe.create({
@@ -670,6 +671,8 @@ const googleAuth = async (req, res) => {
             name: `${name}'s Wardrobe`,
           });
         }
+
+        console.log("✅ User found or created:", user);
 
         const token = jwt.sign(
           { id: user._id, role: user.role },
@@ -685,7 +688,7 @@ const googleAuth = async (req, res) => {
             email: user.email,
             username: user.username,
             photo: user.photo,
-            profileCompleted: user.profileCompleted,
+            profileCompleted: user.profileCompleted, // Ensure the profileCompleted flag is returned
             role: user.role,
           },
         });
