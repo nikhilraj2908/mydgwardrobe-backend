@@ -18,6 +18,7 @@ const wardrobeSchema = new mongoose.Schema(
     color: {
       type: String,
       required: true, // hex or predefined color
+       default: '#dd54ff',
     },
 
     itemCount: {
