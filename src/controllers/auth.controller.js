@@ -227,6 +227,7 @@ const login = async (req, res) => {
         email: user.email,
         mobile: user.mobile,
         role: user.role,
+         profileCompleted: user.profileCompleted, 
       },
     });
   } catch (err) {
@@ -340,6 +341,7 @@ const verifyMobileLogin = async (req, res) => {
         email: user.email,
         mobile: user.mobile,
         role: user.role,
+         profileCompleted: user.profileCompleted, 
       },
     });
   } catch (err) {
