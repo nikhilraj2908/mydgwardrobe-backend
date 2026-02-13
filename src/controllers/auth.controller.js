@@ -51,7 +51,7 @@ const throttleOTP = async (email) => {
 ========================================================= */
 const register = async (req, res) => {
   try {
-    const { username, email, password, gender, mobile, dob } = req.body;
+    const { username, email, password, gender, mobile, dob,profileCompleted } = req.body;
 
     const exists = await User.findOne({ email });
     if (exists)
@@ -66,6 +66,7 @@ const register = async (req, res) => {
       gender,
       mobile,
       dob,
+      profileCompleted,
     });
 
     // Delete previous OTPs
