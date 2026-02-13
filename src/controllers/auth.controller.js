@@ -140,7 +140,29 @@ const verifyOTP = async (req, res) => {
     await User.findOneAndUpdate({ email }, { isVerified: true });
     await OTP.deleteMany({ email });
 
-    return res.json({ message: "Account verified successfully" });
+      const user = await User.findOne({ email });
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    // Generate JWT token
+    const token = jwt.sign(
+      { id: user._id, role: user.role },
+      process.env.JWT_SECRET,
+      { expiresIn: "7d" }
+    );
+
+    // Return token and user data (including profileCompleted)
+    return res.json({
+      message: "Account verified successfully",
+      token,
+      user: {
+        id: user._id,
+        username: user.username,
+        email: user.email,
+        mobile: user.mobile,
+        role: user.role,
+        profileCompleted: user.profileCompleted, // true for manual signup
+      },
+    });
   } catch (err) {
     console.error("VERIFY OTP ERROR:", err);
     res.status(500).json({ message: "Server error" });
