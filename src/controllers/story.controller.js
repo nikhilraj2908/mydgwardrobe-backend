@@ -19,7 +19,7 @@ exports.createStory = async (req, res) => {
 
     const story = await Story.create({
       user: req.user._id,
-      media: req.file.key        , // ✅ S3 URL
+      media: req.file.key, // ✅ S3 URL
       mediaType,
       duration: displayDuration,
       expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
@@ -62,6 +62,32 @@ exports.getActiveStories = async (req, res) => {
   }
 };
 
+// /* ================= DELETE STORY ================= */
+// exports.deleteStory = async (req, res) => {
+//   try {
+//     const story = await Story.findById(req.params.id);
+
+//     if (!story) {
+//       return res.status(404).json({ message: "Story not found" });
+//     }
+
+//     if (story.user.toString() !== req.user._id.toString()) {
+//       return res.status(403).json({ message: "Not allowed" });
+//     }
+
+//     // 🔥 Delete media from S3
+//     await deleteFromS3(story.media);
+
+//     await story.deleteOne();
+
+//     res.json({ success: true });
+//   } catch (err) {
+//     console.error("DELETE STORY ERROR:", err);
+//     res.status(500).json({ message: "Server error" });
+//   }
+// };
+
+
 /* ================= DELETE STORY ================= */
 exports.deleteStory = async (req, res) => {
   try {
@@ -70,9 +96,15 @@ exports.deleteStory = async (req, res) => {
     if (!story) {
       return res.status(404).json({ message: "Story not found" });
     }
-
     if (story.user.toString() !== req.user._id.toString()) {
       return res.status(403).json({ message: "Not allowed" });
+    }
+    // Check if the story was created within the last 24 hours
+    const timeDifference = new Date() - new Date(story.createdAt);
+
+    const oneDay = 24 * 60 * 60 * 1000;
+    if (timeDifference > oneDay) {
+      return res.status(400).json({ message: "You can only delete stories within 24 hours" });
     }
 
     // 🔥 Delete media from S3
@@ -88,6 +120,7 @@ exports.deleteStory = async (req, res) => {
 };
 
 /* ================= MARK STORY VIEWED ================= */
+
 exports.markStoryViewed = async (req, res) => {
   try {
     const story = await Story.findById(req.params.id);
@@ -101,6 +134,29 @@ exports.markStoryViewed = async (req, res) => {
 
     res.json({ views: story.viewers.length });
   } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+
+// ===== GET STORY VIEWERS (OWNER ONLY) =====
+exports.getStoryViewers = async (req, res) => {
+  try {
+    const story = await Story.findById(req.params.id)
+      .populate("viewers", "username photo"); // only fields you need
+
+    if (!story) {
+      return res.status(404).json({ message: "Story not found" });
+    }
+
+    // ✅ Only the owner can see the viewer list
+    if (story.user.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: "Forbidden" });
+    }
+
+    res.json(story.viewers);
+  } catch (err) {
+    console.error("GET VIEWERS ERROR:", err);
     res.status(500).json({ message: err.message });
   }
 };
