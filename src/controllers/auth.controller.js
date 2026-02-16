@@ -250,6 +250,7 @@ const login = async (req, res) => {
         mobile: user.mobile,
         role: user.role,
          profileCompleted: user.profileCompleted, 
+         authProvider: user.authProvider || "local",
       },
     });
   } catch (err) {
@@ -364,6 +365,7 @@ const verifyMobileLogin = async (req, res) => {
         mobile: user.mobile,
         role: user.role,
          profileCompleted: user.profileCompleted, 
+         authProvider: user.authProvider || "local",
       },
     });
   } catch (err) {
@@ -715,6 +717,7 @@ const googleAuth = async (req, res) => {
             photo: user.photo,
             profileCompleted: user.profileCompleted, // Ensure the profileCompleted flag is returned
             role: user.role,
+            authProvider: user.authProvider,
           },
         });
       }
