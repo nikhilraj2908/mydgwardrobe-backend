@@ -789,7 +789,45 @@ const completeProfile = async (req, res) => {
   }
 };
 /* ========================================================= */
+/* =========================================================
+   CHANGE PASSWORD (LOGGED-IN USER)
+========================================================= */
+const changePassword = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { currentPassword, newPassword } = req.body;
 
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ message: "All fields required" });
+    }
+
+    const user = await User.findById(userId).select("+password");
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    // Google users can't change password (they don't have one)
+    if (user.authProvider === "google") {
+      return res.status(400).json({
+        message: "Password change not allowed for Google login users",
+      });
+    }
+
+    const match = await bcrypt.compare(currentPassword, user.password);
+    if (!match) {
+      return res.status(400).json({ message: "Current password incorrect" });
+    }
+
+    const hashed = await bcrypt.hash(newPassword, 10);
+
+    user.password = hashed;
+    await user.save();
+
+    return res.json({ message: "Password changed successfully" });
+
+  } catch (err) {
+    console.error("CHANGE PASSWORD ERROR:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
 module.exports = {
   register,
   verifyOTP,
@@ -804,4 +842,5 @@ module.exports = {
   googleAuth,
   completeProfile,
   getMe,
+  changePassword,
 };
