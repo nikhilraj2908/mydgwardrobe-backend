@@ -47,16 +47,8 @@ const sendOTP = async (email, otp) => {
 
 const sendResetMail = async (email, link) => {
   try {
-    const transporter = nodemailer.createTransport({
-      service: "gmail",
-      auth: {
-        user: process.env.SMTP_EMAIL,
-        pass: process.env.SMTP_PASSWORD,
-      },
-    });
-
     await transporter.sendMail({
-      from: `"Your DG Closet" <${process.env.SMTP_EMAIL}>`,
+      from: `"DG WARDROBE" <${process.env.SMTP_EMAIL}>`,
       to: email,
       subject: "Reset Your Password",
       html: `
