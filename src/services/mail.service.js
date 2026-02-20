@@ -30,19 +30,20 @@ const sendOTP = async (email, otp) => {
       subject: "Your Verification Code",
       html: `
         <div style="font-family:Arial;font-size:16px">
+          <p>We received your request for a single-use code to use with your DG WARDROBE account.</p>
           <p>Your verification code is:</p>
           <h2 style="color:#d633ff">${otp}</h2>
-          <p>This code expires in 5 minutes.</p>
+          <p>This code expires in 5 minutes. Don't share it with anyone. We'll never ask for it outside an official platform.</p>
+          <P>Thank You,</p>
+          <p>DG Wardrobe Team</p>
         </div>
       `,
     });
-
     console.log("📧 OTP sent to", email);
   } catch (error) {
-    console.error("❌ Error sending OTP:", error);
+    console.error("❌ Error sending OTP to", email, ":", error.message);
   }
 };
-
 
 
 const sendResetMail = async (email, link) => {
