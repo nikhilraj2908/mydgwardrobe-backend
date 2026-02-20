@@ -2,8 +2,17 @@ const nodemailer = require("nodemailer");
 console.log("EMAIL:", process.env.SMTP_EMAIL);
 console.log("PASS:", process.env.SMTP_PASSWORD ? "LOADED" : "EMPTY");
 
+// const transporter = nodemailer.createTransport({
+//   service: "gmail",
+//   auth: {
+//     user: process.env.SMTP_EMAIL,
+//     pass: process.env.SMTP_PASSWORD,
+//   },
+// });
 const transporter = nodemailer.createTransport({
-  service: "gmail",
+  host: "mail.digiwardrobe.com",
+  port: 465,
+  secure: true,                // true for 465, false for other ports
   auth: {
     user: process.env.SMTP_EMAIL,
     pass: process.env.SMTP_PASSWORD,
@@ -16,7 +25,7 @@ const transporter = nodemailer.createTransport({
 const sendOTP = async (email, otp) => {
   try {
     await transporter.sendMail({
-      from: `"Your DG Closet" <${process.env.SMTP_EMAIL}>`,
+      from: `"DG WARDROBE" <${process.env.SMTP_EMAIL}>`,
       to: email,
       subject: "Your Verification Code",
       html: `
