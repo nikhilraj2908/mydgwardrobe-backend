@@ -17,6 +17,8 @@ const getCategory= require('./src/routes/category.routes');
 const notificationRoutes = require("./src/routes/notification.routes");
 const followRoutes = require("./src/routes/follow.routes");
 const premiumRoutes = require("./src/routes/premium.routes");
+const adminRoutes = require("./src/routes/admin.routes");
+const superadmin = require("./src/routes/setup.routes")
 const app = express();
 
 /* ================= CORS ================= */
@@ -61,10 +63,11 @@ app.use("/api/story", storyRotes);
 app.use("/api/saved", savedRoutes);
 /* ================= START ================= */
 app.use("/api/categories",getCategory);
-
+app.use("/api/admin", adminRoutes);
 app.use("/api", notificationRoutes);
 app.use("/api/follow", followRoutes);
 app.use("/api/premium", premiumRoutes);
+// app.use("/api/setup", superadmin);  /// that route is removed as it is only for one time superadmin creating 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);

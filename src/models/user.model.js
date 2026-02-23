@@ -43,8 +43,9 @@ const userSchema = new mongoose.Schema(
 
     role: {
       type: String,
-      enum: ["user", "superadmin"],
+      enum: ["user", "admin", "superadmin"],
       default: "user",
+      index: true
     },
 
     isVerified: {
@@ -65,7 +66,19 @@ const userSchema = new mongoose.Schema(
       type: String,
       index: true,
     },
-
+    status: {
+      type: String,
+      enum: ["active", "blocked", "suspended"],
+      default: "active",
+      index: true
+    },
+    lastLoginAt: {
+      type: Date
+    },
+    loginCount: {
+      type: Number,
+      default: 0
+    },
     photo: {
       type: String,
     },
@@ -91,8 +104,8 @@ const userSchema = new mongoose.Schema(
       type: Date,
     },
     profileCompleted: {
-        type: Boolean,
-        default: false,
+      type: Boolean,
+      default: false,
     },
     bio: { type: String }
 
