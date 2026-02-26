@@ -10,12 +10,14 @@ const {
   toggleBlock,
   changeRole,
   deleteUser,
-  getUserDetails
+  getUserDetails,
+  postNotifications
 } = require("../controllers/admin.controller");
 
 /* Dashboard */
 router.get("/stats", authMiddleware, adminAuth, getStats);
 
+router.post("/notifications",authMiddleware,adminAuth,postNotifications)
 /* Users */
 router.get("/users", authMiddleware, adminAuth, getUsers);
 router.patch("/users/:id/block", authMiddleware, adminAuth, toggleBlock);

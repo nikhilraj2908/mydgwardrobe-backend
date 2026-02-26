@@ -4,6 +4,7 @@ const Wardrobe = require("../models/wardrobe.model");
 const Follow = require("../models/follow.model");
 const Like = require("../models/like.model");
 const Notification = require("../models/notification.model");
+
 /* ===============================
    DASHBOARD STATS
 ================================ */
@@ -236,3 +237,44 @@ exports.getUserDetails = async (req, res) => {
     res.status(500).json({ message: "User detail error" });
   }
 };
+
+exports.postNotifications=async(req,res)=>{
+    try{
+        const {title,body,recipients}=req.body;
+        if(!title || !body){
+            return res.status(400).json({message:"Title and body are required"});
+        }
+        let targetUserIds=[];
+        if(recipients==="all"){
+            const users=await User.find({},'_id');
+            targetUserIds=users.map(u=>u._id); 
+        }else if(Array.isArray(recipients)&& recipients.length>0){
+            const users=await User.find({_id:{$in:recipients}},'_id');
+            if(users.length!==recipients.length){
+                return res.status(400).json({mesage:"some user ids are invalid"});
+            }
+            targetUserIds=recipients;
+        }else{
+            return res.status(400).json({message:"Invalid recipient"});
+        }
+
+        const notifications= targetUserIds.map(userID=>({
+            user:userID,
+            type:"system",
+            title,
+            message:body,
+            read:false
+        }))
+
+        const chunkSize=1000;
+        for(let i=0;i<notifications.length;i+=chunkSize){
+            const chunk=notifications.slice(i,i+chunkSize);
+            await Notification.insertMany(chunk);
+        } 
+        res.status(201).json({message:`Notification sent to  ${targetUserIds.length} users`})
+
+    }catch(err){
+        console.error(err)
+        res.status(500).json({message:"Failed to send notification"})
+    }
+}

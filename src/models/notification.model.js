@@ -20,6 +20,7 @@ const notificationSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "WardrobeItem",
     },
+    title: { type: String }, 
     message: String,
     read: {
       type: Boolean,
