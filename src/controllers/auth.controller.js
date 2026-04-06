@@ -17,6 +17,21 @@ const client = jwksClient({
   cacheMaxAge: 10 * 60 * 1000,
 });
 
+const generateAccessToken = (user) => {
+  return jwt.sign(
+    { id: user._id, role: user.role },
+    process.env.JWT_SECRET,
+    { expiresIn: "7d" }
+  );
+};
+
+const generateRefreshToken = (user) => {
+  return jwt.sign(
+    { id: user._id },
+    process.env.REFRESH_TOKEN_SECRET,
+    { expiresIn: "90d" }
+  );
+};
 
 function getKey(header, callback) {
   client.getSigningKey(header.kid, function (err, key) {
@@ -51,7 +66,7 @@ const throttleOTP = async (email) => {
 ========================================================= */
 const register = async (req, res) => {
   try {
-    const { username, email, password, gender, mobile, dob,profileCompleted } = req.body;
+    const { username, email, password, gender, mobile, dob, profileCompleted } = req.body;
 
     const exists = await User.findOne({ email });
     if (exists)
@@ -140,27 +155,32 @@ const verifyOTP = async (req, res) => {
     await User.findOneAndUpdate({ email }, { isVerified: true });
     await OTP.deleteMany({ email });
 
-      const user = await User.findOne({ email });
+    const user = await User.findOne({ email });
     if (!user) return res.status(404).json({ message: "User not found" });
 
     // Generate JWT token
-    const token = jwt.sign(
-      { id: user._id, role: user.role },
-      process.env.JWT_SECRET,
-      { expiresIn: "7d" }
-    );
+    // const token = jwt.sign(
+    //   { id: user._id, role: user.role },
+    //   process.env.JWT_SECRET,
+    //   { expiresIn: "7d" }
+    // );
 
+
+    const accessToken = generateAccessToken(user);
+    const refreshToken = generateRefreshToken(user);
     // Return token and user data (including profileCompleted)
     return res.json({
-      message: "Account verified successfully",
-      token,
+      message: "Login successful",
+      token: accessToken,
+      refreshToken,
       user: {
         id: user._id,
         username: user.username,
         email: user.email,
         mobile: user.mobile,
         role: user.role,
-        profileCompleted: user.profileCompleted, // true for manual signup
+        profileCompleted: user.profileCompleted,
+        authProvider: user.authProvider || "local",
       },
     });
   } catch (err) {
@@ -234,25 +254,24 @@ const login = async (req, res) => {
     if (!valid)
       return res.status(400).json({ message: "Incorrect password" });
 
-    const token = jwt.sign(
-      { id: user._id, role: user.role },
-      process.env.JWT_SECRET,
-      { expiresIn: "7d" }
-    );
+    
 
-    return res.json({
-      message: "Login successful",
-      token,
-      user: {
-        id: user._id,
-        username: user.username,
-        email: user.email,
-        mobile: user.mobile,
-        role: user.role,
-         profileCompleted: user.profileCompleted, 
-         authProvider: user.authProvider || "local",
-      },
-    });
+    const accessToken = generateAccessToken(user);
+const refreshToken = generateRefreshToken(user);
+return res.json({
+  message: "Login successful",
+  token: accessToken,
+  refreshToken,
+  user: {
+    id: user._id,
+    username: user.username,
+    email: user.email,
+    mobile: user.mobile,
+    role: user.role,
+    profileCompleted: user.profileCompleted,
+    authProvider: user.authProvider || "local",
+  },
+});
   } catch (err) {
     console.error("LOGIN ERROR:", err);
     res.status(500).json({ message: "Server error" });
@@ -349,25 +368,23 @@ const verifyMobileLogin = async (req, res) => {
 
     await OTP.deleteMany({ email });
 
-    const token = jwt.sign(
-      { id: user._id, role: user.role },
-      process.env.JWT_SECRET,
-      { expiresIn: "7d" }
-    );
-
-    return res.json({
-      message: "Login successful",
-      token,
-      user: {
-        id: user._id,
-        username: user.username,
-        email: user.email,
-        mobile: user.mobile,
-        role: user.role,
-         profileCompleted: user.profileCompleted, 
-         authProvider: user.authProvider || "local",
-      },
-    });
+   
+const accessToken = generateAccessToken(user);
+const refreshToken = generateRefreshToken(user);
+    
+return res.json({
+  message: "Account verified successfully",
+  token: accessToken,
+  refreshToken,
+  user: {
+    id: user._id,
+    username: user.username,
+    email: user.email,
+    mobile: user.mobile,
+    role: user.role,
+    profileCompleted: user.profileCompleted,
+  },
+});
   } catch (err) {
     console.error("VERIFY MOBILE LOGIN ERROR:", err);
     res.status(500).json({ message: "Server error" });
@@ -570,7 +587,7 @@ const resetPassword = async (req, res) => {
 
 
 //     const payload = ticket.getPayload();
-    
+
 //     // Make sure to check if email is verified
 //     if (!payload.email_verified) {
 //       return res.status(400).json({ message: "Email not verified with Google" });
@@ -701,25 +718,23 @@ const googleAuth = async (req, res) => {
 
         console.log("✅ User found or created:", user);
 
-        const token = jwt.sign(
-          { id: user._id, role: user.role },
-          process.env.JWT_SECRET,
-          { expiresIn: "7d" }
-        );
+        const accessToken = generateAccessToken(user);
+const refreshToken = generateRefreshToken(user);
 
-        return res.json({
-          message: "Login successful",
-          token,
-          user: {
-            id: user._id,
-            email: user.email,
-            username: user.username,
-            photo: user.photo,
-            profileCompleted: user.profileCompleted, // Ensure the profileCompleted flag is returned
-            role: user.role,
-            authProvider: user.authProvider,
-          },
-        });
+return res.json({
+  message: "Login successful",
+  token: accessToken,
+  refreshToken,
+  user: {
+    id: user._id,
+    email: user.email,
+    username: user.username,
+    photo: user.photo,
+    profileCompleted: user.profileCompleted,
+    role: user.role,
+    authProvider: user.authProvider,
+  },
+});
       }
     );
   } catch (err) {
@@ -831,6 +846,37 @@ const changePassword = async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 };
+const refreshAccessToken = async (req, res) => {
+  try {
+    const { refreshToken } = req.body;
+
+    if (!refreshToken) {
+      return res.status(401).json({ message: "Refresh token required" });
+    }
+
+    const decoded = jwt.verify(refreshToken, process.env.REFRESH_TOKEN_SECRET);
+
+    const user = await User.findById(decoded.id).select("-password");
+    if (!user) {
+      return res.status(401).json({ message: "User not found" });
+    }
+
+    if (user.status === "blocked") {
+      return res.status(403).json({ message: "Account blocked by admin" });
+    }
+
+    const newAccessToken = generateAccessToken(user);
+    const newRefreshToken = generateRefreshToken(user);
+
+    return res.json({
+      token: newAccessToken,
+      refreshToken: newRefreshToken,
+    });
+  } catch (error) {
+    console.log("Refresh token error:", error.message);
+    return res.status(401).json({ message: "Invalid or expired refresh token" });
+  }
+};
 module.exports = {
   register,
   verifyOTP,
@@ -846,4 +892,5 @@ module.exports = {
   completeProfile,
   getMe,
   changePassword,
+  refreshAccessToken,
 };
