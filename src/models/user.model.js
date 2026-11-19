@@ -107,7 +107,13 @@ const userSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
-    bio: { type: String }
+    bio: { type: String },
+    blockedUsers: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+      },
+    ],
 
   },
   { timestamps: true }

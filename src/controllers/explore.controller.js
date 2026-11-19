@@ -29,22 +29,24 @@ exports.getExploreItems = async (req, res) => {
       }
     }
 
-    if (search) {
+    if (search && typeof search === "string" && search.trim().length > 0) {
+      const safeSearch = search.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const searchRegex = { $regex: safeSearch, $options: "i" };
+
       const wardrobes = await Wardrobe.find({
-        name: { $regex: search, $options: "i" },
+        name: searchRegex,
       }).select("_id");
 
       const categories = await Category.find({
-        name: { $regex: search, $options: "i" },
+        name: searchRegex,
       }).select("_id");
 
       filter.$or = [
-        { brand: { $regex: search, $options: "i" } },
-        { description: { $regex: search, $options: "i" } }, // ✅ ADD
+        { brand: searchRegex },
+        { description: searchRegex },
         { wardrobe: { $in: wardrobes.map(w => w._id) } },
         { category: { $in: categories.map(c => c._id) } },
       ];
-
     }
 
     let sortQuery = { createdAt: -1 };

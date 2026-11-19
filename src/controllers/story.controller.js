@@ -46,6 +46,7 @@ exports.getActiveStories = async (req, res) => {
     const grouped = {};
 
     stories.forEach((story) => {
+      if (!story.user || !story.user._id) return;
       const uid = story.user._id.toString();
       if (!grouped[uid]) {
         grouped[uid] = {

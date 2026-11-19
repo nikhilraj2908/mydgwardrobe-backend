@@ -27,7 +27,7 @@ exports.getStats = async (req, res) => {
             User.countDocuments({ lastLoginAt: { $gte: today } })
         ]);
 
-        res.json({
+        res.json({ 
             totalUsers,
             newUsersToday,
             totalItems,

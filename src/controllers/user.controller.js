@@ -1,4 +1,13 @@
 const User = require("../models/user.model");
+const Wardrobe = require("../models/wardrobe.model");
+const WardrobeItem = require("../models/wardrobeItem.model");
+const Story = require("../models/story.model");
+const Like = require("../models/like.model");
+const Comment = require("../models/comment.model");
+const Follow = require("../models/follow.model");
+const SavedItem = require("../models/savedItem.model");
+const Notification = require("../models/notification.model");
+const { deleteFromS3 } = require("../utils/s3");
 
 // GET PROFILE
 exports.getProfile = async (req, res) => {
@@ -52,6 +61,9 @@ exports.updateProfile = async (req, res) => {
     });
   } catch (err) {
     console.error("UPDATE PROFILE ERROR:", err);
+    if (err.code === 11000) {
+      return res.status(409).json({ message: "Username or mobile already taken" });
+    }
     res.status(500).json({ message: "Server error" });
   }
 };
@@ -98,5 +110,127 @@ exports.searchUsers = async (req, res) => {
   } catch (err) {
     console.error("USER SEARCH ERROR:", err);
     res.status(500).json({ message: "Server error" });
+  }
+};
+
+/* =====================================================
+   BLOCK / UNBLOCK USER (UGC COMPLIANCE)
+===================================================== */
+exports.blockUser = async (req, res) => {
+  try {
+    const currentUserId = req.user.id || req.user._id;
+    const { targetUserId } = req.params;
+
+    if (currentUserId.toString() === targetUserId.toString()) {
+      return res.status(400).json({ message: "You cannot block yourself" });
+    }
+
+    await User.findByIdAndUpdate(currentUserId, {
+      $addToSet: { blockedUsers: targetUserId },
+    });
+
+    res.json({ message: "User blocked successfully" });
+  } catch (err) {
+    console.error("BLOCK USER ERROR:", err);
+    res.status(500).json({ message: "Server error blocking user" });
+  }
+};
+
+exports.unblockUser = async (req, res) => {
+  try {
+    const currentUserId = req.user.id || req.user._id;
+    const { targetUserId } = req.params;
+
+    await User.findByIdAndUpdate(currentUserId, {
+      $pull: { blockedUsers: targetUserId },
+    });
+
+    res.json({ message: "User unblocked successfully" });
+  } catch (err) {
+    console.error("UNBLOCK USER ERROR:", err);
+    res.status(500).json({ message: "Server error unblocking user" });
+  }
+};
+
+exports.getBlockedUsers = async (req, res) => {
+  try {
+    const currentUserId = req.user.id || req.user._id;
+    const user = await User.findById(currentUserId)
+      .populate("blockedUsers", "username photo")
+      .lean();
+
+    res.json(user?.blockedUsers || []);
+  } catch (err) {
+    console.error("GET BLOCKED USERS ERROR:", err);
+    res.status(500).json({ message: "Server error fetching blocked users" });
+  }
+};
+
+/* =====================================================
+   DELETE ACCOUNT (GOOGLE PLAY POLICY REQUIREMENT)
+   DELETE /api/user/me
+===================================================== */
+exports.deleteAccount = async (req, res) => {
+  try {
+    const userId = req.user.id || req.user._id;
+
+    // 1️⃣ Delete profile photo from S3
+    const user = await User.findById(userId);
+    if (user && user.photo) {
+      try {
+        await deleteFromS3(user.photo);
+      } catch (e) {
+        console.error("Failed to delete user profile photo from S3:", e);
+      }
+    }
+
+    // 2️⃣ Find and delete user's wardrobe items & their S3 images
+    const items = await WardrobeItem.find({ user: userId }).select("images imageUrl");
+    for (const item of items) {
+      if (Array.isArray(item.images)) {
+        for (const img of item.images) {
+          try {
+            await deleteFromS3(img);
+          } catch (e) {}
+        }
+      } else if (item.imageUrl) {
+        try {
+          await deleteFromS3(item.imageUrl);
+        } catch (e) {}
+      }
+    }
+    await WardrobeItem.deleteMany({ user: userId });
+
+    // 3️⃣ Delete user's wardrobes
+    await Wardrobe.deleteMany({ user: userId });
+
+    // 4️⃣ Find and delete user's stories & S3 media
+    const stories = await Story.find({ user: userId }).select("media");
+    for (const story of stories) {
+      if (story.media) {
+        try {
+          await deleteFromS3(story.media);
+        } catch (e) {}
+      }
+    }
+    await Story.deleteMany({ user: userId });
+
+    // 5️⃣ Clean up social records (likes, comments, follows, saves, notifications)
+    await Promise.all([
+      Like.deleteMany({ user: userId }),
+      Comment.deleteMany({ user: userId }),
+      Follow.deleteMany({ $or: [{ follower: userId }, { following: userId }] }),
+      SavedItem.deleteMany({ user: userId }),
+      Notification.deleteMany({ $or: [{ user: userId }, { sender: userId }] }),
+    ]);
+
+    // 6️⃣ Delete the user account record
+    await User.findByIdAndDelete(userId);
+
+    console.log(`✅ Cascading account deletion completed for user ${userId}`);
+    res.json({ message: "Account and all associated data deleted successfully" });
+  } catch (err) {
+    console.error("DELETE ACCOUNT ERROR:", err);
+    res.status(500).json({ message: "Server error deleting account" });
   }
 };

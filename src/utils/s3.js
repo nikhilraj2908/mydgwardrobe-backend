@@ -9,6 +9,26 @@ AWS.config.update({
 const s3 = new AWS.S3();
 
 /* ===============================
+   UPLOAD TO S3
+================================ */
+const uploadToS3 = async (file, folder = "uploads") => {
+  if (!file) return null;
+  const extension = file.originalname ? file.originalname.split(".").pop() : "jpg";
+  const fileName = `${folder}/${Date.now()}_${Math.random().toString(36).substring(2, 8)}.${extension}`;
+
+  const uploadResult = await s3
+    .upload({
+      Bucket: process.env.AWS_BUCKET_NAME,
+      Key: fileName,
+      Body: file.buffer,
+      ContentType: file.mimetype || "application/octet-stream",
+    })
+    .promise();
+
+  return uploadResult.Location;
+};
+
+/* ===============================
    DELETE FROM S3
 ================================ */
 const deleteFromS3 = async (filePath) => {
@@ -33,5 +53,6 @@ const deleteFromS3 = async (filePath) => {
 
 module.exports = {
   s3,           // ✅ keeps multer-s3 working
+  uploadToS3,   // ✅ fixes category upload
   deleteFromS3, // ✅ fixes story delete
 };

@@ -18,7 +18,10 @@ const notificationRoutes = require("./src/routes/notification.routes");
 const followRoutes = require("./src/routes/follow.routes");
 const premiumRoutes = require("./src/routes/premium.routes");
 const adminRoutes = require("./src/routes/admin.routes");
-const superadmin = require("./src/routes/setup.routes")
+const reportRoutes = require("./src/routes/report.routes");
+const superadmin = require("./src/routes/setup.routes");
+const outfitRoutes = require("./src/routes/outfit.routes");
+const rateLimit = require("./src/middlewares/rateLimit.middleware");
 const app = express();
 
 /* ================= CORS ================= */
@@ -39,11 +42,19 @@ app.use((req, res, next) => {
 });
 
 /* ================= BODY PARSERS ================= */
-// app.use(express.json());
-// app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: "10mb" }));
+app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
-app.use(express.json({ limit: "100mb" }));
-app.use(express.urlencoded({ extended: true, limit: "100mb" }));
+/* ================= RATE LIMITING ================= */
+// General API rate limit (500 requests per 15 mins per IP)
+app.use("/api", rateLimit({ windowMs: 15 * 60 * 1000, max: 500 }));
+
+// Stricter rate limiter for auth endpoints (brute-force protection: 60 attempts per 15 mins)
+app.use("/api/auth", rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 60,
+  message: "Too many login/auth requests. Please try again after 15 minutes."
+}));
 
 
 /* ================= DB ================= */
@@ -67,6 +78,8 @@ app.use("/api/admin", adminRoutes);
 app.use("/api", notificationRoutes);
 app.use("/api/follow", followRoutes);
 app.use("/api/premium", premiumRoutes);
+app.use("/api/reports", reportRoutes);
+app.use("/api/outfits", outfitRoutes);
 // app.use("/api/setup", superadmin);  /// that route is removed as it is only for one time superadmin creating 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
