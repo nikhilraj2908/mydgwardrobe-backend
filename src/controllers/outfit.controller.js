@@ -71,6 +71,60 @@ exports.getMyOutfits = async (req, res) => {
 };
 
 /* ======================================================
+   UPDATE / EDIT EXISTING MATCHED PAIR
+====================================================== */
+exports.updateOutfit = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { id } = req.params;
+    const { name, items, description } = req.body;
+
+    const outfit = await Outfit.findOne({ _id: id, user: userId });
+    if (!outfit) {
+      return res.status(404).json({ message: "Matched pair not found or unauthorized" });
+    }
+
+    if (items && Array.isArray(items)) {
+      if (items.length === 0) {
+        return res.status(400).json({ message: "At least one item is required in the pair" });
+      }
+      outfit.items = items.map((it, idx) => ({
+        item: it.item || it.itemId || it._id,
+        x: typeof it.x === "number" ? it.x : 0,
+        y: typeof it.y === "number" ? it.y : 0,
+        scale: typeof it.scale === "number" ? it.scale : 1,
+        width: typeof it.width === "number" ? it.width : 180,
+        height: typeof it.height === "number" ? it.height : 180,
+        zIndex: typeof it.zIndex === "number" ? it.zIndex : idx + 1,
+      }));
+    }
+
+    if (name && name.trim()) {
+      outfit.name = name.trim();
+    }
+    if (typeof description === "string") {
+      outfit.description = description.trim();
+    }
+
+    await outfit.save();
+
+    const populated = await Outfit.findById(outfit._id).populate({
+      path: "items.item",
+      select: "images imageUrl cutoutImage brand price category categoryType wardrobe",
+      populate: { path: "category", select: "name type" },
+    });
+
+    res.json({
+      message: "Matched pair updated successfully",
+      outfit: populated,
+    });
+  } catch (err) {
+    console.error("UPDATE OUTFIT ERROR:", err);
+    res.status(500).json({ message: err.message || "Failed to update matched pair" });
+  }
+};
+
+/* ======================================================
    DELETE MATCHED PAIR
 ====================================================== */
 exports.deleteOutfit = async (req, res) => {
