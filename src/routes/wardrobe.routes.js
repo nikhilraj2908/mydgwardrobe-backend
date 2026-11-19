@@ -23,10 +23,16 @@ const {
   moveWardrobeItem,
   moveWardrobeItemsBulk,
   updateItemAccessLevel,
-  getItemsByCategory 
+  getItemsByCategory,
+  generateItemCutout,
 } = require("../controllers/wardrobe.controller");
 
 const { getExploreItems } = require("../controllers/explore.controller");
+
+/* ===============================
+   GENERATE ITEM CUTOUT (TRANSPARENT PNG)
+================================ */
+router.post("/item/:id/cutout", auth, generateItemCutout);
 
 /* ===============================
    ADD ITEM

@@ -29,6 +29,25 @@ const uploadToS3 = async (file, folder = "uploads") => {
 };
 
 /* ===============================
+   UPLOAD BUFFER TO S3 (FOR CUTOUTS / PROCESSED PNGS)
+================================ */
+const uploadBufferToS3 = async (buffer, folder = "cutouts", contentType = "image/png") => {
+  if (!buffer) return null;
+  const fileName = `${folder}/${Date.now()}-${Math.round(Math.random() * 1e9)}.png`;
+
+  const uploadResult = await s3
+    .upload({
+      Bucket: process.env.AWS_BUCKET_NAME,
+      Key: fileName,
+      Body: buffer,
+      ContentType: contentType,
+    })
+    .promise();
+
+  return uploadResult.Key || fileName;
+};
+
+/* ===============================
    DELETE FROM S3
 ================================ */
 const deleteFromS3 = async (filePath) => {
@@ -52,7 +71,8 @@ const deleteFromS3 = async (filePath) => {
 
 
 module.exports = {
-  s3,           // ✅ keeps multer-s3 working
-  uploadToS3,   // ✅ fixes category upload
-  deleteFromS3, // ✅ fixes story delete
+  s3,               // ✅ keeps multer-s3 working
+  uploadToS3,       // ✅ fixes category upload
+  uploadBufferToS3, // ✅ transparent cutout PNG upload
+  deleteFromS3,     // ✅ fixes story delete
 };

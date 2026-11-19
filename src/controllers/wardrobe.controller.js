@@ -2,6 +2,7 @@ const WardrobeItem = require("../models/wardrobeItem.model");
 const Wardrobe = require("../models/wardrobe.model");
 
 const { deleteFromS3 } = require("../utils/s3");
+const { generateCutout } = require("../utils/removeBg");
 
 
 /* ======================================================
@@ -157,6 +158,20 @@ const addWardrobeItem = async (req, res) => {
       wardrobeDoc._id,
       { $inc: { itemCount: 1 } }
     );
+
+    // 4️⃣ AUTOMATICALLY GENERATE TRANSPARENT CUTOUT FOR CLOTHING (IN BACKGROUND)
+    if (imagePaths && imagePaths.length > 0) {
+      generateCutout(imagePaths[0])
+        .then(async (cutoutKey) => {
+          if (cutoutKey) {
+            await WardrobeItem.findByIdAndUpdate(item._id, { cutoutImage: cutoutKey });
+            console.log(`✅ Cutout attached to item ${item._id}: ${cutoutKey}`);
+          }
+        })
+        .catch((err) => {
+          console.error("Cutout generation failed silently:", err.message);
+        });
+    }
 
     res.status(201).json({
       message: "Item added to wardrobe successfully",
@@ -995,8 +1010,41 @@ const getItemsByCategory = async (req, res) => {
   }
 };
 
+/* ======================================================
+   GENERATE / REFRESH CUTOUT FOR EXISTING WARDROBE ITEM
+====================================================== */
+const generateItemCutout = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const item = await WardrobeItem.findOne({ _id: id, user: req.user._id });
+    if (!item) {
+      return res.status(404).json({ message: "Item not found" });
+    }
 
+    if (!item.images || item.images.length === 0) {
+      return res.status(400).json({ message: "Item has no images" });
+    }
 
+    const primaryImg = item.images[0];
+    const cutoutKey = await generateCutout(primaryImg);
+
+    if (!cutoutKey) {
+      return res.status(500).json({ message: "Failed to generate cutout image" });
+    }
+
+    item.cutoutImage = cutoutKey;
+    await item.save();
+
+    res.json({
+      message: "Cutout generated successfully",
+      cutoutImage: cutoutKey,
+      item,
+    });
+  } catch (err) {
+    console.error("GENERATE ITEM CUTOUT ERROR:", err);
+    res.status(500).json({ message: "Error generating cutout" });
+  }
+};
 
 module.exports = {
   addWardrobeItem,
@@ -1016,5 +1064,6 @@ module.exports = {
   moveWardrobeItem,
   moveWardrobeItemsBulk,
   updateItemAccessLevel,
-  getItemsByCategory
+  getItemsByCategory,
+  generateItemCutout,
 };

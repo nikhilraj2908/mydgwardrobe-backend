@@ -15,6 +15,11 @@ const wardrobeItemSchema = new mongoose.Schema(
       validate: [(arr) => arr.length > 0, "At least one image is required"],
     },
 
+    cutoutImage: {
+      type: String, // Transparent cutout PNG path in S3
+      default: "",
+    },
+
     // ✅ FIX 1: store category as ObjectId
     category: {
       type: mongoose.Schema.Types.ObjectId,
