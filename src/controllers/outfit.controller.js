@@ -33,7 +33,7 @@ exports.createOutfit = async (req, res) => {
 
     const populated = await Outfit.findById(outfit._id).populate({
       path: "items.item",
-      select: "images imageUrl brand price category categoryType wardrobe",
+      select: "images imageUrl cutoutImage brand price category categoryType wardrobe",
       populate: { path: "category", select: "name type" },
     });
 
@@ -58,7 +58,7 @@ exports.getMyOutfits = async (req, res) => {
       .sort({ createdAt: -1 })
       .populate({
         path: "items.item",
-        select: "images imageUrl brand price category categoryType wardrobe",
+        select: "images imageUrl cutoutImage brand price category categoryType wardrobe",
         populate: { path: "category", select: "name type" },
       })
       .lean();
