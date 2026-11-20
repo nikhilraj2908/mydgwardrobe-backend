@@ -19,6 +19,33 @@ exports.createStory = async (req, res) => {
       ? (req.file.mimetype && req.file.mimetype.startsWith("video") ? "video" : "image")
       : (req.body.mediaType || "image");
 
+    const outfitId = req.body.outfitId || req.body.outfit || undefined;
+    let comboItems = Array.isArray(req.body.comboItems) ? req.body.comboItems : [];
+
+    if (outfitId && comboItems.length === 0) {
+      try {
+        const Outfit = require("../models/outfit.model");
+        const foundOutfit = await Outfit.findById(outfitId).populate("items.item");
+        if (foundOutfit && Array.isArray(foundOutfit.items)) {
+          comboItems = foundOutfit.items.map((slot) => {
+            const itm = slot.item || {};
+            return {
+              item: itm._id || itm,
+              image: itm.cutoutImage || (Array.isArray(itm.images) ? itm.images[0] : "") || itm.imageUrl || itm.image || "",
+              x: typeof slot.x === "number" ? slot.x : 0,
+              y: typeof slot.y === "number" ? slot.y : 0,
+              scale: typeof slot.scale === "number" ? slot.scale : 1,
+              width: typeof slot.width === "number" ? slot.width : 180,
+              height: typeof slot.height === "number" ? slot.height : 180,
+              zIndex: typeof slot.zIndex === "number" ? slot.zIndex : 1,
+            };
+          });
+        }
+      } catch (e) {
+        console.error("Error populating combo items from outfit:", e);
+      }
+    }
+
     const story = await Story.create({
       user: req.user._id || req.user.id,
       media,
@@ -26,7 +53,8 @@ exports.createStory = async (req, res) => {
       duration: displayDuration,
       storyType: req.body.storyType || "standard",
       item: req.body.itemId || req.body.item || undefined,
-      outfit: req.body.outfitId || req.body.outfit || undefined,
+      outfit: outfitId,
+      comboItems,
       caption: req.body.caption || "",
       expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
     });
@@ -39,9 +67,10 @@ exports.createStory = async (req, res) => {
         select: "name items",
         populate: {
           path: "items.item",
-          select: "cutoutImage images imageUrl",
+          select: "cutoutImage images imageUrl name brand price",
         },
-      });
+      })
+      .populate("comboItems.item", "name brand price images imageUrl cutoutImage");
 
     res.status(201).json(populatedStory || story);
   } catch (err) {
@@ -64,9 +93,10 @@ exports.getActiveStories = async (req, res) => {
         select: "name items",
         populate: {
           path: "items.item",
-          select: "cutoutImage images imageUrl",
+          select: "cutoutImage images imageUrl name brand price",
         },
       })
+      .populate("comboItems.item", "name brand price images imageUrl cutoutImage")
       .sort({ createdAt: 1 })
       .lean();
 

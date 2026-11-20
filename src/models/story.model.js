@@ -47,6 +47,43 @@ const storySchema = new mongoose.Schema(
       ref: "Outfit",
     },
 
+    comboItems: [
+      {
+        item: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "WardrobeItem",
+        },
+        image: {
+          type: String,
+          default: "",
+        },
+        x: {
+          type: Number,
+          default: 0,
+        },
+        y: {
+          type: Number,
+          default: 0,
+        },
+        scale: {
+          type: Number,
+          default: 1,
+        },
+        width: {
+          type: Number,
+          default: 180,
+        },
+        height: {
+          type: Number,
+          default: 180,
+        },
+        zIndex: {
+          type: Number,
+          default: 1,
+        },
+      },
+    ],
+
     caption: {
       type: String,
       default: "",
