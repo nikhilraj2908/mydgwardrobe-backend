@@ -66,8 +66,16 @@ exports.getLikeCount = async (req, res) => {
     const { postType, postId } = req.params;
 
     const count = await Like.countDocuments({ postType, postId });
+    const recentLikes = await Like.find({ postType, postId })
+      .sort({ createdAt: -1 })
+      .limit(3)
+      .populate("user", "username photo");
 
-    res.json({ count });
+    const likers = recentLikes
+      .map((l) => l.user)
+      .filter(Boolean);
+
+    res.json({ count, likers });
   } catch (err) {
     console.error("LIKE COUNT ERROR:", err);
     res.status(500).json({ message: "Server error" });
