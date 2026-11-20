@@ -31,6 +31,28 @@ const storySchema = new mongoose.Schema(
       },
     ],
 
+    storyType: {
+      type: String,
+      enum: ["standard", "post", "combo"],
+      default: "standard",
+    },
+
+    item: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "WardrobeItem",
+    },
+
+    outfit: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Outfit",
+    },
+
+    caption: {
+      type: String,
+      default: "",
+      maxlength: 300,
+    },
+
     expiresAt: {
       type: Date,
       required: true,

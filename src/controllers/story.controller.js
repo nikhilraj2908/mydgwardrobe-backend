@@ -7,25 +7,43 @@ exports.createStory = async (req, res) => {
       return res.status(401).json({ message: "Unauthenticated" });
     }
 
-    if (!req.file) {
-      return res.status(400).json({ message: "Media file required" });
+    const media = req.file ? req.file.key : (req.body.media || req.body.imageUrl);
+
+    if (!media) {
+      return res.status(400).json({ message: "Media file or image URL required" });
     }
 
-    const displayDuration = Number(req.body.duration) || 10;
+    const displayDuration = Number(req.body.duration) || 7;
 
-    const mediaType = req.file.mimetype.startsWith("video")
-      ? "video"
-      : "image";
+    const mediaType = req.file
+      ? (req.file.mimetype && req.file.mimetype.startsWith("video") ? "video" : "image")
+      : (req.body.mediaType || "image");
 
     const story = await Story.create({
-      user: req.user._id,
-      media: req.file.key, // ✅ S3 URL
+      user: req.user._id || req.user.id,
+      media,
       mediaType,
       duration: displayDuration,
+      storyType: req.body.storyType || "standard",
+      item: req.body.itemId || req.body.item || undefined,
+      outfit: req.body.outfitId || req.body.outfit || undefined,
+      caption: req.body.caption || "",
       expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
     });
 
-    res.status(201).json(story);
+    const populatedStory = await Story.findById(story._id)
+      .populate("user", "username photo")
+      .populate("item", "name brand price images imageUrl cutoutImage")
+      .populate({
+        path: "outfit",
+        select: "name items",
+        populate: {
+          path: "items.item",
+          select: "cutoutImage images imageUrl",
+        },
+      });
+
+    res.status(201).json(populatedStory || story);
   } catch (err) {
     console.error("CREATE STORY ERROR:", err);
     res.status(500).json({ message: err.message });
@@ -40,6 +58,15 @@ exports.getActiveStories = async (req, res) => {
       expiresAt: { $gt: new Date() },
     })
       .populate("user", "username photo")
+      .populate("item", "name brand price images imageUrl cutoutImage")
+      .populate({
+        path: "outfit",
+        select: "name items",
+        populate: {
+          path: "items.item",
+          select: "cutoutImage images imageUrl",
+        },
+      })
       .sort({ createdAt: 1 })
       .lean();
 
