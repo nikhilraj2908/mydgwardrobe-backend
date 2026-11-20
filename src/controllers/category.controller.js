@@ -18,7 +18,7 @@ exports.getAllCategories = async (req, res) => {
 };
 
 /* ============================
-   CREATE CATEGORY (ADMIN)
+   CREATE CATEGORY (ADMIN / USER)
 ============================ */
 exports.createCategory = async (req, res) => {
   try {
@@ -30,21 +30,26 @@ exports.createCategory = async (req, res) => {
       });
     }
 
+    const trimmedName = name.trim();
+    const escapedName = trimmedName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+    // Check if category already exists in user's categories or explore categories (case-insensitive)
     const exists = await Category.findOne({
-      name: name.trim(),
-      type,
-      createdBy: req.user._id,
+      name: { $regex: new RegExp(`^${escapedName}$`, "i") },
       isActive: true,
+      $or: [{ createdBy: req.user._id }, { scope: "explore" }],
     });
 
     if (exists) {
-      return res.status(409).json({
+      return res.status(200).json({
         message: "Category already exists",
+        category: exists,
+        alreadyExists: true,
       });
     }
 
     const category = await Category.create({
-      name: name.trim(),
+      name: trimmedName,
       type,
       createdBy: req.user._id,
       scope: "user", // 🔒 never explore
@@ -55,6 +60,23 @@ exports.createCategory = async (req, res) => {
       category,
     });
   } catch (err) {
+    if (err.code === 11000) {
+      try {
+        const trimmedName = (req.body.name || "").trim();
+        const escapedName = trimmedName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        const existing = await Category.findOne({
+          name: { $regex: new RegExp(`^${escapedName}$`, "i") },
+          isActive: true,
+        });
+        if (existing) {
+          return res.status(200).json({
+            message: "Category already exists",
+            category: existing,
+            alreadyExists: true,
+          });
+        }
+      } catch (_) {}
+    }
     console.error("CREATE CATEGORY ERROR:", err);
     res.status(500).json({ message: "Failed to create category" });
   }

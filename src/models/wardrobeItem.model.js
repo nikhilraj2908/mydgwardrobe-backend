@@ -54,6 +54,12 @@ const wardrobeItemSchema = new mongoose.Schema(
       trim: true,
     },
 
+    color: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+
     description: {
       type: String,
       trim: true,

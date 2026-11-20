@@ -67,7 +67,7 @@ const addWardrobeItem = async (req, res) => {
     }
     const imagePaths = req.files.map(file => file.key);
 
-    const { category, categoryType, gender, wardrobe, brand, visibility, description } = req.body;
+    const { category, categoryType, gender, wardrobe, brand, color, visibility, description } = req.body;
 
 
     const price = Number(req.body.price || 0);
@@ -142,6 +142,7 @@ const addWardrobeItem = async (req, res) => {
       price,
       gender,
       brand,
+      color: color ? color.trim() : "",
       description: description || "",
       visibility: finalVisibility,
       accessLevel: finalAccessLevel,
@@ -704,6 +705,7 @@ const updateWardrobeItem = async (req, res) => {
     const {
       category,
       brand,
+      color,
       description,
       visibility,
       price,
@@ -760,6 +762,7 @@ const updateWardrobeItem = async (req, res) => {
     /* 📝 FIELD UPDATES */
     if (category !== undefined) item.category = category;
     if (brand !== undefined) item.brand = brand;
+    if (color !== undefined) item.color = color ? color.trim() : "";
     if (description !== undefined) item.description = description;
     if (visibility !== undefined) item.visibility = visibility;
     if (price !== undefined) item.price = Number(price);
