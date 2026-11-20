@@ -1,6 +1,12 @@
 const User = require("../models/user.model");
 const OTP = require("../models/otp.model");
 const PasswordReset = require("../models/passwordResetToken.model");
+const {
+  normalizeUsername,
+  validateUsername,
+  isUsernameAvailable,
+  generateDefaultUsername,
+} = require("../services/username.service");
 const jwksClient = require("jwks-rsa");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
@@ -68,15 +74,36 @@ const register = async (req, res) => {
   try {
     const { username, email, password, gender, mobile, dob, profileCompleted } = req.body;
 
-    const exists = await User.findOne({ email });
+    if (!email || !password) {
+      return res.status(400).json({ message: "Email and password are required" });
+    }
+
+    const normalizedEmail = email.trim().toLowerCase();
+    const exists = await User.findOne({ email: normalizedEmail });
     if (exists)
       return res.status(400).json({ message: "Email already exists" });
+
+    // Handle username: validate if provided or generate default from email
+    let finalUsername = "";
+    if (username && username.trim()) {
+      const validation = validateUsername(username);
+      if (!validation.valid) {
+        return res.status(400).json({ message: validation.message });
+      }
+      const available = await isUsernameAvailable(validation.username);
+      if (!available) {
+        return res.status(400).json({ message: "This username is already taken. Please choose another one." });
+      }
+      finalUsername = validation.username;
+    } else {
+      finalUsername = await generateDefaultUsername(normalizedEmail);
+    }
 
     const hashed = await bcrypt.hash(password, 10);
 
     const user = await User.create({
-      username,
-      email,
+      username: finalUsername,
+      email: normalizedEmail,
       password: hashed,
       gender,
       mobile,
@@ -230,20 +257,34 @@ const resendOTP = async (req, res) => {
 };
 
 /* =========================================================
-   LOGIN (USERNAME + PASSWORD)
+   LOGIN (USERNAME OR EMAIL + PASSWORD)
 ========================================================= */
 const login = async (req, res) => {
   try {
-    const { username, password } = req.body;
+    const inputIdentifier = req.body.username || req.body.email || req.body.identifier || "";
+    const { password } = req.body;
 
-    if (!username || !password)
+    if (!inputIdentifier || !password)
       return res
         .status(400)
-        .json({ message: "Username and password are required" });
+        .json({ message: "Username/Email and password are required" });
 
-    const user = await User.findOne({ username }).select("+password");
+    const trimmedInput = inputIdentifier.trim();
+    let searchCriteria = [];
+
+    if (trimmedInput.includes("@") && trimmedInput.includes(".")) {
+      // Input looks like an email address
+      searchCriteria.push({ email: trimmedInput.toLowerCase() });
+    } else {
+      // Input is a username (strip leading @ if entered as @username)
+      const cleanUsername = trimmedInput.replace(/^@+/, "").toLowerCase();
+      searchCriteria.push({ username: cleanUsername });
+      searchCriteria.push({ email: trimmedInput.toLowerCase() });
+    }
+
+    const user = await User.findOne({ $or: searchCriteria }).select("+password");
     if (!user)
-      return res.status(404).json({ message: "Invalid username" });
+      return res.status(404).json({ message: "Invalid username or password" });
 
     if (!user.isVerified)
       return res
@@ -254,24 +295,28 @@ const login = async (req, res) => {
     if (!valid)
       return res.status(400).json({ message: "Incorrect password" });
 
-    
+    // Ensure user has a username (migration on the fly for legacy accounts)
+    if (!user.username && user.email) {
+      user.username = await generateDefaultUsername(user.email);
+      await user.save();
+    }
 
     const accessToken = generateAccessToken(user);
-const refreshToken = generateRefreshToken(user);
-return res.json({
-  message: "Login successful",
-  token: accessToken,
-  refreshToken,
-  user: {
-    id: user._id,
-    username: user.username,
-    email: user.email,
-    mobile: user.mobile,
-    role: user.role,
-    profileCompleted: user.profileCompleted,
-    authProvider: user.authProvider || "local",
-  },
-});
+    const refreshToken = generateRefreshToken(user);
+    return res.json({
+      message: "Login successful",
+      token: accessToken,
+      refreshToken,
+      user: {
+        id: user._id,
+        username: user.username,
+        email: user.email,
+        mobile: user.mobile,
+        role: user.role,
+        profileCompleted: user.profileCompleted,
+        authProvider: user.authProvider || "local",
+      },
+    });
   } catch (err) {
     console.error("LOGIN ERROR:", err);
     res.status(500).json({ message: "Server error" });

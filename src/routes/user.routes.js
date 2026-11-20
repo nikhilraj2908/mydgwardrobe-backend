@@ -7,6 +7,7 @@ const upload = require("../middlewares/upload.middleware");
 const {
   getProfile,
   updateProfile,
+  checkUsernameAvailability,
   getUserById,
   searchUsers,
   deleteAccount,
@@ -21,6 +22,9 @@ const {
 
 /* Get my profile (prefill Edit Profile screen) */
 router.get("/me", authMiddleware, getProfile);
+
+/* Check username availability */
+router.get("/check-username", authMiddleware, checkUsernameAvailability);
 
 /* Update my profile (text + optional profile image) */
 router.put(

@@ -59,6 +59,10 @@ app.use("/api/auth", rateLimit({
 
 /* ================= DB ================= */
 connectDB();
+const { ensureUsernamesForExistingUsers } = require("./src/services/username.service");
+setTimeout(() => {
+  ensureUsernamesForExistingUsers();
+}, 2500);
 
 /* ================= ROUTES ================= */
 app.use("/api/auth", authRoutes);

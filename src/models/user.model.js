@@ -30,6 +30,7 @@ const userSchema = new mongoose.Schema(
     username: {
       type: String,
       trim: true,
+      lowercase: true,
       unique: true,
       sparse: true,
     },

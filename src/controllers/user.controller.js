@@ -8,6 +8,11 @@ const Follow = require("../models/follow.model");
 const SavedItem = require("../models/savedItem.model");
 const Notification = require("../models/notification.model");
 const { deleteFromS3 } = require("../utils/s3");
+const {
+  normalizeUsername,
+  validateUsername,
+  isUsernameAvailable,
+} = require("../services/username.service");
 
 // GET PROFILE
 exports.getProfile = async (req, res) => {
@@ -44,16 +49,24 @@ exports.updateProfile = async (req, res) => {
 
     const updateData = {};
 
-    // Only update username if provided and changed
-    if (username && username.trim() !== "" && username.trim() !== currentUser.username) {
-      const existingUser = await User.findOne({
-        username: username.trim(),
-        _id: { $ne: req.user.id },
-      });
-      if (existingUser) {
-        return res.status(409).json({ message: "Username already taken. Please choose another username." });
+    // Validate and update username if provided
+    if (username !== undefined) {
+      const normalized = normalizeUsername(username);
+      if (!normalized) {
+        return res.status(400).json({ message: "Username cannot be empty." });
       }
-      updateData.username = username.trim();
+
+      if (normalized !== (currentUser.username || "")) {
+        const validation = validateUsername(normalized);
+        if (!validation.valid) {
+          return res.status(400).json({ message: validation.message });
+        }
+        const available = await isUsernameAvailable(validation.username, req.user.id);
+        if (!available) {
+          return res.status(409).json({ message: "This username is already taken. Please choose another one." });
+        }
+        updateData.username = validation.username;
+      }
     }
 
     // Only update mobile if provided and changed
@@ -91,9 +104,40 @@ exports.updateProfile = async (req, res) => {
     console.error("UPDATE PROFILE ERROR:", err);
     if (err.code === 11000) {
       const field = Object.keys(err.keyPattern || {})[0] || "Field";
-      const fieldName = field === "username" ? "Username" : field === "mobile" ? "Mobile number" : field;
+      if (field === "username" || err.message?.includes("username")) {
+        return res.status(409).json({ message: "This username is already taken. Please choose another one." });
+      }
+      const fieldName = field === "mobile" ? "Mobile number" : field;
       return res.status(409).json({ message: `${fieldName} is already taken. Please choose another.` });
     }
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+/* =====================================================
+   CHECK USERNAME AVAILABILITY
+   GET /api/user/check-username?username=xxx
+===================================================== */
+exports.checkUsernameAvailability = async (req, res) => {
+  try {
+    const rawUsername = req.query.username;
+    if (!rawUsername) {
+      return res.status(400).json({ available: false, message: "Username cannot be empty." });
+    }
+
+    const validation = validateUsername(rawUsername);
+    if (!validation.valid) {
+      return res.json({ available: false, message: validation.message });
+    }
+
+    const available = await isUsernameAvailable(validation.username, req.user?.id);
+    if (!available) {
+      return res.json({ available: false, message: "This username is already taken. Please choose another one." });
+    }
+
+    return res.json({ available: true, message: "Username is available." });
+  } catch (err) {
+    console.error("CHECK USERNAME ERROR:", err);
     res.status(500).json({ message: "Server error" });
   }
 };
