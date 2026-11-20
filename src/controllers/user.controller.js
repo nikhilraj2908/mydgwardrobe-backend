@@ -35,18 +35,46 @@ exports.getProfile = async (req, res) => {
 // };
 exports.updateProfile = async (req, res) => {
   try {
-    const { username, bio, mobile } = req.body;
+    const { username, bio, mobile, gender, dob } = req.body;
+
+    const currentUser = await User.findById(req.user.id);
+    if (!currentUser) {
+      return res.status(404).json({ message: "User not found" });
+    }
 
     const updateData = {};
 
-    if (username) updateData.username = username;
-    if (bio) updateData.bio = bio;
-    if (mobile) updateData.mobile = mobile;
+    // Only update username if provided and changed
+    if (username && username.trim() !== "" && username.trim() !== currentUser.username) {
+      const existingUser = await User.findOne({
+        username: username.trim(),
+        _id: { $ne: req.user.id },
+      });
+      if (existingUser) {
+        return res.status(409).json({ message: "Username already taken. Please choose another username." });
+      }
+      updateData.username = username.trim();
+    }
+
+    // Only update mobile if provided and changed
+    if (mobile !== undefined && mobile.trim() !== "" && mobile.trim() !== (currentUser.mobile || "")) {
+      const existingMobile = await User.findOne({
+        mobile: mobile.trim(),
+        _id: { $ne: req.user.id },
+      });
+      if (existingMobile) {
+        return res.status(409).json({ message: "Mobile number already registered to another account." });
+      }
+      updateData.mobile = mobile.trim();
+    }
+
+    if (bio !== undefined) updateData.bio = bio;
+    if (gender && ["Male", "Female"].includes(gender)) updateData.gender = gender;
+    if (dob) updateData.dob = dob;
 
     // If profile image uploaded
     if (req.file) {
-      // updateData.photo = `/uploads/profile/${req.file.filename}`;
-     updateData.photo= req.file.key        
+      updateData.photo = req.file.key;
     }
 
     const updatedUser = await User.findByIdAndUpdate(
@@ -62,7 +90,9 @@ exports.updateProfile = async (req, res) => {
   } catch (err) {
     console.error("UPDATE PROFILE ERROR:", err);
     if (err.code === 11000) {
-      return res.status(409).json({ message: "Username or mobile already taken" });
+      const field = Object.keys(err.keyPattern || {})[0] || "Field";
+      const fieldName = field === "username" ? "Username" : field === "mobile" ? "Mobile number" : field;
+      return res.status(409).json({ message: `${fieldName} is already taken. Please choose another.` });
     }
     res.status(500).json({ message: "Server error" });
   }
