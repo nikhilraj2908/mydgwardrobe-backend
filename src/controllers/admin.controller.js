@@ -5,6 +5,7 @@ const Follow = require("../models/follow.model");
 const Like = require("../models/like.model");
 const Notification = require("../models/notification.model");
 const SavedItem = require('../models/savedItem.model');
+const { sendPushToMultipleUsers } = require("../utils/pushNotification");
 /* ===============================
    DASHBOARD STATS
 ================================ */
@@ -277,6 +278,14 @@ exports.postNotifications = async (req, res) => {
             const chunk = notifications.slice(i, i + chunkSize);
             await Notification.insertMany(chunk);
         }
+
+        // 📲 DISPATCH PUSH NOTIFICATION TO PHONES
+        sendPushToMultipleUsers(targetUserIds, {
+            title,
+            body,
+            data: { type: "system" }
+        }).catch(err => console.error("Admin broadcast push error:", err));
+
         res.status(201).json({ message: `Notification sent to  ${targetUserIds.length} users` })
 
     } catch (err) {
