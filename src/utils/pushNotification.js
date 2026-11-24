@@ -1,9 +1,19 @@
-const { Expo } = require("expo-server-sdk");
-const expo = new Expo();
+const axios = require("axios");
 const User = require("../models/user.model");
 
 /**
- * Sends a push notification to a user's mobile device via Expo & Firebase Cloud Messaging (FCM).
+ * Validates whether a token string is a valid Expo Push Token format
+ */
+function isExpoPushToken(token) {
+  return (
+    typeof token === "string" &&
+    (token.startsWith("ExponentPushToken[") || token.startsWith("ExpoPushToken[")) &&
+    token.endsWith("]")
+  );
+}
+
+/**
+ * Sends a push notification to a user's mobile device via Expo Push API & Firebase Cloud Messaging (FCM).
  *
  * @param {string} recipientUserId - MongoDB User ID of recipient
  * @param {Object} options
@@ -32,32 +42,39 @@ async function sendPushNotification(recipientUserId, { title = "DigiWardrobe", b
     }
 
     // Verify token validity
-    if (!Expo.isExpoPushToken(pushToken)) {
+    if (!isExpoPushToken(pushToken)) {
       console.warn(`[Push] Invalid Expo push token for user ${user.username || recipientUserId}: ${pushToken}`);
       return;
     }
 
-    const messages = [
-      {
-        to: pushToken,
-        sound: "default",
-        title,
-        body,
-        data,
-        channelId: "default",
-        priority: "high",
-      },
-    ];
+    const message = {
+      to: pushToken,
+      sound: "default",
+      title,
+      body,
+      data,
+      channelId: "default",
+      priority: "high",
+    };
 
-    const chunks = expo.chunkPushNotifications(messages);
-    for (const chunk of chunks) {
-      await expo.sendPushNotificationsAsync(chunk);
+    const res = await axios.post("https://exp.host/--/api/v2/push/send", [message], {
+      headers: {
+        Accept: "application/json",
+        "Accept-Encoding": "gzip, deflate",
+        "Content-Type": "application/json",
+      },
+      timeout: 10000,
+    });
+
+    if (res.data?.data?.[0]?.status === "error") {
+      console.warn("[Push Warning from Expo API]:", res.data.data[0]);
     }
   } catch (err) {
-    console.error("[Push Notification Error]:", err);
+    console.error("[Push Notification Error]:", err?.response?.data || err.message || err);
   }
 }
 
 module.exports = {
   sendPushNotification,
+  isExpoPushToken,
 };
