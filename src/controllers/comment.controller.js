@@ -1,6 +1,7 @@
 const Comment = require("../models/comment.model");
 const Notification = require("../models/notification.model");
 const WardrobeItem = require("../models/wardrobeItem.model");
+const { sendPushNotification } = require("../utils/pushNotification");
 
 /**
  * POST /api/comment/:postId
@@ -42,6 +43,15 @@ exports.addComment = async (req, res) => {
         item: item._id,
         message: "commented on your item",
       });
+
+      // 📲 SEND MOBILE PUSH NOTIFICATION
+      const commenterName = populated?.user?.username ? `@${populated.user.username}` : "Someone";
+      const snippet = text.trim().length > 50 ? `${text.trim().substring(0, 47)}...` : text.trim();
+      sendPushNotification(item.user, {
+        title: "DigiWardrobe",
+        body: `${commenterName} commented: "${snippet}"`,
+        data: { type: "comment", itemId: String(item._id) },
+      }).catch((e) => console.error("Push notification error:", e));
     }
 
     return res

@@ -1,5 +1,7 @@
 const Like = require("../models/like.model");
 const Notification = require("../models/notification.model");
+const User = require("../models/user.model");
+const { sendPushNotification } = require("../utils/pushNotification");
 
 /* ======================================================
    TOGGLE LIKE
@@ -48,6 +50,15 @@ exports.toggleLike = async (req, res) => {
           item: item._id,
           message: "liked your item",
         });
+
+        // 📲 SEND MOBILE PUSH NOTIFICATION
+        const actor = await User.findById(userId).select("username").lean();
+        const actorName = actor?.username ? `@${actor.username}` : "Someone";
+        sendPushNotification(item.user, {
+          title: "DigiWardrobe",
+          body: `${actorName} liked your outfit!`,
+          data: { type: "like", itemId: String(item._id) },
+        }).catch((e) => console.error("Push notification error:", e));
       }
     }
 

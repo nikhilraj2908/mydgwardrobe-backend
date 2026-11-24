@@ -1,4 +1,5 @@
 const Notification = require("../models/notification.model");
+const User = require("../models/user.model");
 
 exports.getNotifications = async (req, res) => {
   const notifications = await Notification.find({ user: req.user.id })
@@ -44,6 +45,59 @@ exports.markNotificationRead = async (req, res) => {
   } catch (err) {
     console.error("MARK NOTIFICATION READ ERROR:", err);
     res.status(500).json({ message: "Server error" });
+  }
+};
+
+/* =====================================================
+   SAVE / UPDATE PUSH TOKEN
+===================================================== */
+exports.savePushToken = async (req, res) => {
+  try {
+    const userId = req.user.id || req.user._id;
+    const { pushToken } = req.body;
+
+    if (!pushToken) {
+      return res.status(400).json({ message: "pushToken is required" });
+    }
+
+    await User.findByIdAndUpdate(userId, {
+      $set: { expoPushToken: pushToken },
+    });
+
+    res.json({ success: true, message: "Push token registered successfully" });
+  } catch (err) {
+    console.error("SAVE PUSH TOKEN ERROR:", err);
+    res.status(500).json({ message: "Server error saving push token" });
+  }
+};
+
+/* =====================================================
+   NOTIFICATION PREFERENCES (ENABLE / DISABLE)
+===================================================== */
+exports.getPreference = async (req, res) => {
+  try {
+    const userId = req.user.id || req.user._id;
+    const user = await User.findById(userId).select("notificationsEnabled").lean();
+    res.json({ notificationsEnabled: user?.notificationsEnabled !== false });
+  } catch (err) {
+    console.error("GET NOTIFICATION PREFERENCE ERROR:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+exports.updatePreference = async (req, res) => {
+  try {
+    const userId = req.user.id || req.user._id;
+    const { enabled } = req.body;
+
+    await User.findByIdAndUpdate(userId, {
+      $set: { notificationsEnabled: Boolean(enabled) },
+    });
+
+    res.json({ success: true, notificationsEnabled: Boolean(enabled) });
+  } catch (err) {
+    console.error("UPDATE NOTIFICATION PREFERENCE ERROR:", err);
+    res.status(500).json({ message: "Server error updating preference" });
   }
 };
 

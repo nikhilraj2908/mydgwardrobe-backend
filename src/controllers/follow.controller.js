@@ -1,5 +1,7 @@
 const Follow = require("../models/follow.model");
 const Notification = require("../models/notification.model");
+const User = require("../models/user.model");
+const { sendPushNotification } = require("../utils/pushNotification");
 
 /* ================================
    FOLLOW / UNFOLLOW USER
@@ -39,6 +41,15 @@ exports.toggleFollow = async (req, res) => {
       message: "started following you",
       read: false,
     });
+
+    // 📲 SEND MOBILE PUSH NOTIFICATION
+    const follower = await User.findById(followerId).select("username").lean();
+    const followerName = follower?.username ? `@${follower.username}` : "Someone";
+    sendPushNotification(userId, {
+      title: "DigiWardrobe",
+      body: `${followerName} started following your wardrobe!`,
+      data: { type: "follow", userId: String(followerId) },
+    }).catch((e) => console.error("Push notification error:", e));
 
 
     res.json({ following: true });

@@ -5,6 +5,9 @@ const {
   getNotifications,
   markAllRead,
   markNotificationRead,
+  savePushToken,
+  getPreference,
+  updatePreference,
 } = require("../controllers/notification.controller");
 
 const auth = require("../middlewares/auth.middleware"); // or requireAuth / protect
@@ -16,5 +19,10 @@ router.get("/notifications", auth, getNotifications);
 router.post("/notifications/read-all", auth, markAllRead);
 
 router.post("/notifications/:id/read", auth, markNotificationRead);
+
+// Push token registration & preference
+router.post("/notifications/push-token", auth, savePushToken);
+router.get("/notifications/preference", auth, getPreference);
+router.patch("/notifications/preference", auth, updatePreference);
 
 module.exports = router;
