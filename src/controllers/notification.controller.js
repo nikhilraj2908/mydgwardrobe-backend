@@ -56,6 +56,8 @@ exports.savePushToken = async (req, res) => {
     const userId = req.user.id || req.user._id;
     const { pushToken } = req.body;
 
+    console.log(`📱 [Push Token Request] User ${userId}: ${pushToken}`);
+
     if (!pushToken) {
       return res.status(400).json({ message: "pushToken is required" });
     }
@@ -64,6 +66,7 @@ exports.savePushToken = async (req, res) => {
       $set: { expoPushToken: pushToken },
     });
 
+    console.log(`✅ [Push Token Saved Successfully] User ${userId}`);
     res.json({ success: true, message: "Push token registered successfully" });
   } catch (err) {
     console.error("SAVE PUSH TOKEN ERROR:", err);

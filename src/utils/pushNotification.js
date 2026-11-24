@@ -87,6 +87,8 @@ async function sendPushToMultipleUsers(recipientUserIds, { title = "DigiWardrobe
   try {
     if (!Array.isArray(recipientUserIds) || recipientUserIds.length === 0 || !body) return;
 
+    console.log(`🔍 [Push Broadcast] Finding registered device tokens for ${recipientUserIds.length} users...`);
+
     // Find all users who have an expoPushToken and haven't disabled notifications
     const users = await User.find({
       _id: { $in: recipientUserIds },
@@ -95,6 +97,8 @@ async function sendPushToMultipleUsers(recipientUserIds, { title = "DigiWardrobe
     })
       .select("expoPushToken username")
       .lean();
+
+    console.log(`📱 [Push Broadcast] Found ${users.length} users with registered tokens.`);
 
     if (!users || users.length === 0) {
       console.log("ℹ️ [Push Broadcast] No registered device push tokens found for recipient users.");
