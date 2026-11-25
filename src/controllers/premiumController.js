@@ -79,7 +79,8 @@ exports.getMyPremiumRequests = async (req, res) => {
         status: "pending",
     })
         .populate("requester", "username photo")
-        .populate("item");
+        .populate("item")
+        .sort({ createdAt: -1 });
 
     res.json(requests);
 };
