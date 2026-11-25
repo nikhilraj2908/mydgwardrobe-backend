@@ -7,66 +7,87 @@ const mongoose = require("mongoose");
 
 exports.requestPremiumAccess = async (req, res) => {
     try {
-        const { itemId } = req.body;
+        const { itemId, ownerId } = req.body;
         const requesterId = req.user._id;
 
-        const item = await WardrobeItem.findById(itemId).populate("user");
+        let targetOwnerId = ownerId;
+        let targetItemId = itemId;
+        let item = null;
 
-        if (!item) {
-            return res.status(404).json({ message: "Item not found" });
+        if (itemId) {
+            item = await WardrobeItem.findById(itemId).populate("user");
+            if (item) {
+                targetOwnerId = item.user?._id || item.user;
+            }
         }
 
-        if (String(item.user._id) === String(requesterId)) {
-            return res.status(400).json({ message: "Cannot request your own item" });
+        if (!targetOwnerId && ownerId) {
+            targetOwnerId = ownerId;
         }
 
-        if (item.accessLevel !== "premium") {
-            return res.status(400).json({ message: "Item is not premium" });
+        // If no targetItemId yet, pick any premium item belonging to owner
+        if (!targetItemId && targetOwnerId) {
+            item = await WardrobeItem.findOne({
+                user: targetOwnerId,
+                accessLevel: "premium",
+            });
+            if (item) {
+                targetItemId = item._id;
+            }
+        }
+
+        if (!targetOwnerId) {
+            return res.status(400).json({ message: "Owner or item required" });
+        }
+
+        if (String(targetOwnerId) === String(requesterId)) {
+            return res.status(400).json({ message: "Cannot request your own items" });
         }
 
         const existing = await PremiumAccessRequest.findOne({
             requester: requesterId,
-            owner: item.user._id,
+            owner: targetOwnerId,
             status: { $in: ["pending", "approved"] },
         });
 
         if (existing) {
-            return res.json({ message: "Request already sent" });
+            return res.json({ message: "Request already sent", status: existing.status });
         }
 
         await PremiumAccessRequest.create({
             requester: requesterId,
-            owner: item.user._id,
-            item: itemId,
+            owner: targetOwnerId,
+            item: targetItemId,
         });
 
         // 🔔 1. CREATE IN-APP NOTIFICATION FOR THE OWNER (Shows in notification section & bell badge)
         const requester = await User.findById(requesterId).select("username").lean();
         const requesterName = requester?.username ? `@${requester.username}` : "Someone";
-        const itemLabel = item.title || item.brand || "private/premium item";
+        const itemLabel = item?.title || item?.brand || "private/premium collection";
 
         await Notification.create({
-            user: item.user._id, // receiver is the item owner
+            user: targetOwnerId, // receiver is the item owner
             actor: requesterId,  // actor is the requester
             type: "premium_request",
-            item: itemId,
+            item: targetItemId,
             message: `requested access to your ${itemLabel}`,
         });
 
         // 📲 2. SEND MOBILE PUSH NOTIFICATION (Shutter alert)
-        sendPushNotification(item.user._id, {
+        sendPushNotification(targetOwnerId, {
             title: "DigiWardrobe",
             body: `${requesterName} requested access to your private/premium item! 🔒`,
             data: {
                 type: "premium_request",
-                itemId: String(itemId),
+                itemId: targetItemId ? String(targetItemId) : undefined,
+                ownerId: String(targetOwnerId),
                 requesterId: String(requesterId),
             },
         }).catch((e) => console.error("Push notification error:", e));
 
-        res.json({ message: "Access request sent" });
+        res.json({ message: "Access request sent", status: "pending" });
     } catch (err) {
-        console.error(err);
+        console.error("REQUEST PREMIUM ACCESS ERROR:", err);
         res.status(500).json({ message: "Something went wrong" });
     }
 };
@@ -123,11 +144,12 @@ exports.respondToPremiumRequest = async (req, res) => {
 
       sendPushNotification(request.requester, {
         title: "DigiWardrobe",
-        body: `${ownerName} approved your access request! 🎉`,
+        body: `${ownerName} approved your access request! 🎉 You can now view their private/premium items.`,
         data: {
           type: "premium_approved",
           itemId: request.item?._id ? String(request.item._id) : undefined,
           ownerId: String(req.user._id),
+          userId: String(req.user._id),
         },
       }).catch((e) => console.error("Push notification error:", e));
     }
@@ -139,30 +161,33 @@ exports.respondToPremiumRequest = async (req, res) => {
 };
 
 exports.checkPremiumAccess = async (req, res) => {
-    const { itemId } = req.query;
-    const userId = req.user._id;
+    try {
+        const { itemId, ownerId } = req.query;
+        const userId = req.user._id;
 
-    const item = await WardrobeItem.findById(itemId);
+        let targetOwnerId = ownerId;
+        if (itemId && !targetOwnerId) {
+            const item = await WardrobeItem.findById(itemId);
+            if (!item) return res.status(404).json({ hasAccess: false });
+            if (String(item.user) === String(userId)) return res.json({ hasAccess: true });
+            if (item.accessLevel !== "premium") return res.json({ hasAccess: true });
+            targetOwnerId = item.user;
+        }
 
-    if (!item) return res.status(404).json({ hasAccess: false });
+        if (!targetOwnerId) return res.json({ hasAccess: false });
+        if (String(targetOwnerId) === String(userId)) return res.json({ hasAccess: true });
 
-    // Owner always has access
-    if (String(item.user) === String(userId)) {
-        return res.json({ hasAccess: true });
+        const approved = await PremiumAccessRequest.findOne({
+            requester: userId,
+            owner: targetOwnerId,
+            status: "approved",
+        });
+
+        res.json({ hasAccess: !!approved });
+    } catch (err) {
+        console.error("CHECK PREMIUM ACCESS ERROR:", err);
+        res.status(500).json({ hasAccess: false });
     }
-
-    if (item.accessLevel !== "premium") {
-        return res.json({ hasAccess: true });
-    }
-
-    const approved = await PremiumAccessRequest.findOne({
-        requester: userId,
-        owner: item.user,
-        status: "approved",
-    });
-
-
-    res.json({ hasAccess: !!approved });
 };
 
 exports.getUserPremiumItems = async (req, res) => {
@@ -257,21 +282,38 @@ exports.hasPremiumCollection = async (req, res) => {
   }
 };
 
-// GET /api/premium/status?itemId=
+// GET /api/premium/status?itemId=&ownerId=
 exports.getPremiumRequestStatus = async (req, res) => {
-  const { itemId } = req.query;
-  const userId = req.user._id;
+  try {
+    const { itemId, ownerId } = req.query;
+    const userId = req.user._id;
 
-  const request = await PremiumAccessRequest.findOne({
-    requester: userId,
-    item: itemId,
-  });
+    let targetOwnerId = ownerId;
+    if (itemId && !targetOwnerId) {
+      const item = await WardrobeItem.findById(itemId).select("user");
+      if (item?.user) targetOwnerId = item.user;
+    }
 
-  if (!request) {
-    return res.json({ status: "none" });
+    const query = { requester: userId };
+    if (targetOwnerId) {
+      query.owner = targetOwnerId;
+    } else if (itemId) {
+      query.item = itemId;
+    } else {
+      return res.json({ status: "none" });
+    }
+
+    const request = await PremiumAccessRequest.findOne(query).sort({ createdAt: -1 });
+
+    if (!request) {
+      return res.json({ status: "none" });
+    }
+
+    res.json({ status: request.status }); // pending | approved | rejected
+  } catch (err) {
+    console.error("GET PREMIUM STATUS ERROR:", err);
+    res.status(500).json({ status: "none" });
   }
-
-  res.json({ status: request.status }); // pending | approved | rejected
 };
 exports.getApprovedByMe = async (req, res) => {
   try {
