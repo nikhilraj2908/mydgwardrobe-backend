@@ -1,6 +1,10 @@
 const PremiumAccessRequest = require("../models/PremiumAccessRequest.model");
 const WardrobeItem = require("../models/wardrobeItem.model");
+const Notification = require("../models/notification.model");
+const User = require("../models/user.model");
+const { sendPushNotification } = require("../utils/pushNotification");
 const mongoose = require("mongoose");
+
 exports.requestPremiumAccess = async (req, res) => {
     try {
         const { itemId } = req.body;
@@ -36,6 +40,30 @@ exports.requestPremiumAccess = async (req, res) => {
             item: itemId,
         });
 
+        // 🔔 1. CREATE IN-APP NOTIFICATION FOR THE OWNER (Shows in notification section & bell badge)
+        const requester = await User.findById(requesterId).select("username").lean();
+        const requesterName = requester?.username ? `@${requester.username}` : "Someone";
+        const itemLabel = item.title || item.brand || "private/premium item";
+
+        await Notification.create({
+            user: item.user._id, // receiver is the item owner
+            actor: requesterId,  // actor is the requester
+            type: "premium_request",
+            item: itemId,
+            message: `requested access to your ${itemLabel}`,
+        });
+
+        // 📲 2. SEND MOBILE PUSH NOTIFICATION (Shutter alert)
+        sendPushNotification(item.user._id, {
+            title: "DigiWardrobe",
+            body: `${requesterName} requested access to your private/premium item! 🔒`,
+            data: {
+                type: "premium_request",
+                itemId: String(itemId),
+                requesterId: String(requesterId),
+            },
+        }).catch((e) => console.error("Push notification error:", e));
+
         res.json({ message: "Access request sent" });
     } catch (err) {
         console.error(err);
@@ -64,7 +92,7 @@ exports.respondToPremiumRequest = async (req, res) => {
     return res.status(400).json({ message: "Invalid action" });
   }
 
-  const request = await PremiumAccessRequest.findById(requestId);
+  const request = await PremiumAccessRequest.findById(requestId).populate("item");
 
   if (!request) {
     return res.status(404).json({ message: "Request not found" });
@@ -77,6 +105,34 @@ exports.respondToPremiumRequest = async (req, res) => {
 
   request.status = action === "approve" ? "approved" : "rejected";
   await request.save();
+
+  // 🔔 NOTIFY REQUESTER UPON APPROVAL OR REJECTION
+  try {
+    const owner = await User.findById(req.user._id).select("username").lean();
+    const ownerName = owner?.username ? `@${owner.username}` : "Someone";
+
+    if (action === "approve") {
+      await Notification.create({
+        user: request.requester, // receiver is the requester
+        actor: req.user._id,     // actor is the owner
+        type: "premium_approved",
+        item: request.item?._id || request.item,
+        message: "approved your access request! You can now view their private/premium items.",
+      });
+
+      sendPushNotification(request.requester, {
+        title: "DigiWardrobe",
+        body: `${ownerName} approved your access request! 🎉`,
+        data: {
+          type: "premium_approved",
+          itemId: request.item?._id ? String(request.item._id) : undefined,
+          ownerId: String(req.user._id),
+        },
+      }).catch((e) => console.error("Push notification error:", e));
+    }
+  } catch (notifErr) {
+    console.error("Error sending response notification:", notifErr);
+  }
 
   res.json({ message: `Request ${action}d successfully` });
 };
