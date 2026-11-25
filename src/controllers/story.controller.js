@@ -114,7 +114,21 @@ exports.getActiveStories = async (req, res) => {
       grouped[uid].stories.push(story);
     });
 
-    res.json(Object.values(grouped));
+    let result = Object.values(grouped);
+
+    // 🌟 If current user has active stories, always place their story group 1st!
+    const currentUserId = req.user?._id?.toString() || req.user?.id?.toString();
+    if (currentUserId && result.length > 1) {
+      const myIndex = result.findIndex(
+        (g) => g.user?._id?.toString() === currentUserId
+      );
+      if (myIndex > 0) {
+        const [myGroup] = result.splice(myIndex, 1);
+        result.unshift(myGroup);
+      }
+    }
+
+    res.json(result);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
