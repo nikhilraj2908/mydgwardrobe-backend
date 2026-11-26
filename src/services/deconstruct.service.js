@@ -95,34 +95,70 @@ Important: box_2d coordinates must be normalized integers between 0 and 1000 rep
 Do not output markdown code blocks or explanations, just raw JSON array.
 `;
 
-      const response = await axios.post(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`,
-        {
-          contents: [
-            {
-              parts: [
-                { text: prompt },
-                {
-                  inline_data: {
-                    mime_type: "image/jpeg",
-                    data: base64Data,
+      let candidate = null;
+      try {
+        const response = await axios.post(
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key=${geminiKey}`,
+          {
+            contents: [
+              {
+                parts: [
+                  { text: prompt },
+                  {
+                    inline_data: {
+                      mime_type: "image/jpeg",
+                      data: base64Data,
+                    },
                   },
+                ],
+              },
+            ],
+            generationConfig: {
+              response_mime_type: "application/json",
+              temperature: 0.1,
+            },
+          },
+          {
+            timeout: 25000,
+            headers: { "Content-Type": "application/json" },
+          }
+        );
+        candidate = response.data?.candidates?.[0]?.content?.parts?.[0]?.text;
+      } catch (err35) {
+        console.warn("⚠️ gemini-3.5-flash-lite attempt failed, trying gemini-3.8-flash:", err35.response?.data?.error?.message || err35.message);
+        try {
+          const response2 = await axios.post(
+            `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${geminiKey}`,
+            {
+              contents: [
+                {
+                  parts: [
+                    { text: prompt },
+                    {
+                      inline_data: {
+                        mime_type: "image/jpeg",
+                        data: base64Data,
+                      },
+                    },
+                  ],
                 },
               ],
+              generationConfig: {
+                response_mime_type: "application/json",
+                temperature: 0.1,
+              },
             },
-          ],
-          generationConfig: {
-            response_mime_type: "application/json",
-            temperature: 0.1,
-          },
-        },
-        {
-          timeout: 25000,
-          headers: { "Content-Type": "application/json" },
+            {
+              timeout: 25000,
+              headers: { "Content-Type": "application/json" },
+            }
+          );
+          candidate = response2.data?.candidates?.[0]?.content?.parts?.[0]?.text;
+        } catch (err38) {
+          console.warn("⚠️ gemini-3.8-flash fallback also failed:", err38.response?.data?.error?.message || err38.message);
         }
-      );
+      }
 
-      const candidate = response.data?.candidates?.[0]?.content?.parts?.[0]?.text;
       if (candidate) {
         const cleaned = candidate.replace(/```json|```/gi, "").trim();
         const parsed = JSON.parse(cleaned);
