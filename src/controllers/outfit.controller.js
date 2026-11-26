@@ -1,4 +1,29 @@
 const Outfit = require("../models/outfit.model");
+const { deconstructLookAndPair } = require("../services/deconstruct.service");
+
+/* ======================================================
+   DECONSTRUCT FULL-BODY LOOK & AUTO-PAIR ON CANVAS
+====================================================== */
+exports.deconstructLook = async (req, res) => {
+  try {
+    const userId = req.user._id || req.user.id;
+    if (!req.file || !req.file.buffer) {
+      return res.status(400).json({ message: "An outfit image is required" });
+    }
+
+    console.log(`✨ Processing deconstruct request for user ${userId}, file size: ${req.file.buffer.length} bytes`);
+
+    const result = await deconstructLookAndPair(req.file.buffer, userId);
+
+    res.json({
+      message: "Outfit successfully deconstructed & paired!",
+      ...result,
+    });
+  } catch (err) {
+    console.error("DECONSTRUCT LOOK ERROR:", err);
+    res.status(500).json({ message: err.message || "Failed to deconstruct outfit image" });
+  }
+};
 
 /* ======================================================
    CREATE / SAVE MATCHED PAIR
