@@ -231,9 +231,19 @@ async function resolveCategory(categoryName, userId) {
 /**
  * Process image: detect clothes, crop each item, generate cutout, save to DB, and calculate canvas coordinates.
  */
-async function deconstructLookAndPair(imageBuffer, userId) {
-  if (!imageBuffer || !Buffer.isBuffer(imageBuffer)) {
+async function deconstructLookAndPair(rawBuffer, userId) {
+  if (!rawBuffer || !Buffer.isBuffer(rawBuffer)) {
     throw new Error("Invalid image buffer provided");
+  }
+
+  // 0. Auto-rotate image upright according to phone EXIF metadata
+  let imageBuffer = rawBuffer;
+  if (sharp) {
+    try {
+      imageBuffer = await sharp(rawBuffer).rotate().png().toBuffer();
+    } catch (e) {
+      console.warn("⚠️ Sharp EXIF auto-rotate failed:", e.message);
+    }
   }
 
   // 1. Get original image metadata (width, height)
