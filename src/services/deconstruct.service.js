@@ -4,6 +4,7 @@ const { generateCutoutFromBuffer } = require("../utils/removeBg");
 const WardrobeItem = require("../models/wardrobeItem.model");
 const Wardrobe = require("../models/wardrobe.model");
 const Category = require("../models/category.model");
+const User = require("../models/user.model");
 
 // Lazy-load sharp to prevent crashing on older Node versions (<20.9.0)
 let sharp;
@@ -255,6 +256,12 @@ async function deconstructLookAndPair(imageBuffer, userId) {
     });
   }
 
+  // Resolve user gender for item validation
+  const userDoc = await User.findById(userId).select("gender");
+  let itemGender = "unisex";
+  if (userDoc?.gender === "Male") itemGender = "mens";
+  else if (userDoc?.gender === "Female") itemGender = "womens";
+
   const createdItems = [];
   const canvasGarments = [];
 
@@ -292,12 +299,13 @@ async function deconstructLookAndPair(imageBuffer, userId) {
       // Resolve category
       const categoryDoc = await resolveCategory(itemData.category, userId);
 
-      // Create Wardrobe Item in MongoDB
+      // Create Wardrobe Item in MongoDB (with required gender)
       const newItem = await WardrobeItem.create({
         user: userId,
         wardrobe: wardrobeDoc._id,
         category: categoryDoc._id,
-        categoryType: categoryDoc.type || "unisex",
+        categoryType: categoryDoc.type || itemGender,
+        gender: itemGender,
         images: [originalKey],
         cutoutImage: cutoutKey || "",
         brand: "Auto Extracted",
