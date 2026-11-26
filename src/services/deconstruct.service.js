@@ -13,6 +13,55 @@ try {
   console.warn("⚠️ Sharp image module could not be loaded at startup:", err.message);
 }
 
+// Pure JavaScript fallback image processor
+let Jimp;
+try {
+  Jimp = require("jimp");
+} catch (err) {
+  console.warn("⚠️ Jimp module could not be loaded:", err.message);
+}
+
+/**
+ * Get image dimensions using sharp or Jimp fallback
+ */
+async function getImageDimensions(imageBuffer) {
+  if (sharp) {
+    try {
+      const meta = await sharp(imageBuffer).metadata();
+      return { width: meta.width || 800, height: meta.height || 1200 };
+    } catch (e) {
+      console.warn("⚠️ Sharp metadata failed, trying Jimp:", e.message);
+    }
+  }
+  if (Jimp) {
+    const jimpImg = await Jimp.read(imageBuffer);
+    return { width: jimpImg.bitmap.width, height: jimpImg.bitmap.height };
+  }
+  return { width: 800, height: 1200 };
+}
+
+/**
+ * Crop image buffer using sharp or Jimp fallback
+ */
+async function cropImageBuffer(imageBuffer, left, top, width, height) {
+  if (sharp) {
+    try {
+      return await sharp(imageBuffer)
+        .extract({ left, top, width, height })
+        .png()
+        .toBuffer();
+    } catch (e) {
+      console.warn("⚠️ Sharp extract failed, falling back to Jimp:", e.message);
+    }
+  }
+  if (Jimp) {
+    const jimpImg = await Jimp.read(imageBuffer);
+    jimpImg.crop(left, top, width, height);
+    return await jimpImg.getBufferAsync(Jimp.MIME_PNG);
+  }
+  throw new Error("No image processing engine (sharp or jimp) available on server");
+}
+
 /**
  * Detect clothing items and accessories using Gemini 2.0 Flash / Vision API.
  * Gracefully falls back to smart anatomical slots if API key is not present or API call fails.
@@ -47,7 +96,7 @@ Do not output markdown code blocks or explanations, just raw JSON array.
 `;
 
       const response = await axios.post(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`,
         {
           contents: [
             {
@@ -146,22 +195,12 @@ async function resolveCategory(categoryName, userId) {
  * Process image: detect clothes, crop each item, generate cutout, save to DB, and calculate canvas coordinates.
  */
 async function deconstructLookAndPair(imageBuffer, userId) {
-  if (!sharp) {
-    try {
-      sharp = require("sharp");
-    } catch (e) {
-      throw new Error("Image processing engine (sharp) is not available on this server: " + e.message);
-    }
-  }
-
   if (!imageBuffer || !Buffer.isBuffer(imageBuffer)) {
     throw new Error("Invalid image buffer provided");
   }
 
   // 1. Get original image metadata (width, height)
-  const metadata = await sharp(imageBuffer).metadata();
-  const imgWidth = metadata.width || 800;
-  const imgHeight = metadata.height || 1200;
+  const { width: imgWidth, height: imgHeight } = await getImageDimensions(imageBuffer);
 
   console.log(`📸 Image dimensions: ${imgWidth} x ${imgHeight}`);
 
@@ -206,10 +245,7 @@ async function deconstructLookAndPair(imageBuffer, userId) {
       console.log(`✂️ Cropping ${itemData.title || itemData.category}: [${left}, ${top}, ${cropW}, ${cropH}]`);
 
       // Crop to PNG buffer
-      const croppedBuffer = await sharp(imageBuffer)
-        .extract({ left, top, width: cropW, height: cropH })
-        .png()
-        .toBuffer();
+      const croppedBuffer = await cropImageBuffer(imageBuffer, left, top, cropW, cropH);
 
       // Upload original crop to S3
       const originalKey = await uploadBufferToS3(croppedBuffer, "wardrobe", "image/png");
