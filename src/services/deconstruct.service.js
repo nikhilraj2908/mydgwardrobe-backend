@@ -1,10 +1,17 @@
 const axios = require("axios");
-const sharp = require("sharp");
 const { uploadBufferToS3 } = require("../utils/s3");
 const { generateCutoutFromBuffer } = require("../utils/removeBg");
 const WardrobeItem = require("../models/wardrobeItem.model");
 const Wardrobe = require("../models/wardrobe.model");
 const Category = require("../models/category.model");
+
+// Lazy-load sharp to prevent crashing on older Node versions (<20.9.0)
+let sharp;
+try {
+  sharp = require("sharp");
+} catch (err) {
+  console.warn("⚠️ Sharp image module could not be loaded at startup:", err.message);
+}
 
 /**
  * Detect clothing items and accessories using Gemini 2.0 Flash / Vision API.
@@ -139,6 +146,14 @@ async function resolveCategory(categoryName, userId) {
  * Process image: detect clothes, crop each item, generate cutout, save to DB, and calculate canvas coordinates.
  */
 async function deconstructLookAndPair(imageBuffer, userId) {
+  if (!sharp) {
+    try {
+      sharp = require("sharp");
+    } catch (e) {
+      throw new Error("Image processing engine (sharp) is not available on this server: " + e.message);
+    }
+  }
+
   if (!imageBuffer || !Buffer.isBuffer(imageBuffer)) {
     throw new Error("Invalid image buffer provided");
   }
